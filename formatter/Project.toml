@@ -1,0 +1,7 @@
+name = "formatter"
+uuid = "a9989543-77e6-4c53-85f2-409acb26c684"
+authors = ["vchariso <vharisop@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
