@@ -3,10 +3,12 @@ module SuperPolyak
 import LinearAlgebra
 import StatsBase
 
+const Diagonal = LinearAlgebra.Diagonal
 const givens = LinearAlgebra.givens
 const lmul! = LinearAlgebra.lmul!
 const norm = LinearAlgebra.norm
 const normalize = LinearAlgebra.normalize
+const opnorm = LinearAlgebra.opnorm
 const qr = LinearAlgebra.qr
 const sample = StatsBase.sample
 

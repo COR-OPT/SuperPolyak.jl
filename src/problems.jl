@@ -109,22 +109,23 @@ end
 
 function loss(problem::MaxAffineRegressionProblem)
   A = problem.A
-  m = length(problem.y)
+  y = problem.y
+  m = length(y)
   d, k = size(problem.βs)
   # Assumes the input is a flattened version of `βs`, so it must be reshaped
   # before applying the operator `A`.
-  return z -> (1 / m) * norm(maximum(A * reshape(z, d, k), dims = 2)[:] .- y, 1)
+  return z -> (1 / m) * norm(maximum(A * reshape(z, d, k), dims = 2)[:] - y, 1)
 end
 
 function subgradient(problem::MaxAffineRegressionProblem)
-  y = problem.y
   A = problem.A
+  y = problem.y
   d, k = size(problem.βs)
   grad_fn(z) = begin
-    Z = reshape(z, d, j)
+    Z = reshape(z, d, k)
     signs = sign.(maximum(A * Z, dims = 2)[:] .- y)
     inds = Int.(A * Z .== maximum(A * Z, dims = 2)[:])
-    # Without vectorizing, result would be a `d × 1` matrix.
+    # Without vectorizing, result would be a `d × p` matrix.
     return ((1/length(y))*A'*(signs.*inds))[:]
   end
 end
@@ -154,6 +155,18 @@ struct LassoProblem
 end
 
 """
+  proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+
+Compute a proximal gradient step with step `τ` for a LASSO `problem` at `x`.
+"""
+function proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+  A = problem.A
+  y = problem.y
+  λ = problem.λ
+  return ℓ₁prox(x - τ * A' * (A * x - y), λ * τ)
+end
+
+"""
   ℓ₁prox(x, λ)
 
 Return the proximal operator of `|x|₁` with proximal parameter `λ`.
@@ -179,32 +192,50 @@ Compute the residual `I - T`, where `T` is the proximal gradient operator
 for a LASSO problem with ℓ₁ penalty `τ`.
 """
 function residual(problem::LassoProblem, τ::Float64)
-  A = problem.A
-  y = problem.y
-  λ = problem.λ
-  return z -> z - ℓ₁prox(z - τ .* A' * (A * z .- y), λ * τ)
+  return z -> z - proximal_gradient(problem, z, τ)
 end
 
 """
-  jacobian(problem::LassoProblem, τ::Float64)
+  jacobian(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
 
 Compute the Jacobian of `I - T`, where `T` is the proximal gradient operator
-for a LASSO problem with ℓ₁ penalty `τ`.
+for a LASSO problem with ℓ₁ penalty `τ` at `x`.
 """
-function jacobian(problem::LassoProblem, τ::Float64)
+function jacobian(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
   A = problem.A
   y = problem.y
   λ = problem.λ
-  return z ->
-    I - Diagonal(abs.(z .- (τ .* A' * (A * z .- y))) .≥ λ * τ) * (I - τ .* A'A)
+  return I - Diagonal(abs.(x - τ * A' * (A * x - y)) .≥ λ * τ) * (I - τ * A'A)
 end
 
-function lasso_problem(m, d, k, λ)
+function loss(problem::LassoProblem, τ::Float64)
+  return z -> norm(z - proximal_gradient(problem, z, τ))
+end
+
+function subgradient(problem::LassoProblem, τ::Float64)
+  A = problem.A
+  y = problem.y
+  λ = problem.λ
+  G = A'A
+  w = A'y
+  g(z) = begin
+    r = z - proximal_gradient(problem, z, τ)
+    return (LinearAlgebra.I - Diagonal(abs.(z - τ * (G * z - w)) .≥ λ * τ) * (
+      LinearAlgebra.I - τ * G
+    ))' * normalize(r)
+  end
+  return g
+end
+
+function lasso_problem(m, d, k; kwargs...)
   # Use a well-conditioned design matrix.
   A = Matrix(qr(randn(d, m)).Q)'
   x = generate_sparse_vector(d, k)
-  y = A * x
-  return LassoProblem(A, x, y, 0.1 * norm(A'y, Inf))
+  # Standard deviation of Gaussian noise.
+  σ = get(kwargs, :σ, 0.0)
+  y = A * x + σ * randn(m)
+  λ = get(kwargs, :λ, 0.1 * norm(A'y, Inf))
+  return LassoProblem(A, x, y, λ)
 end
 
 # TODO:
