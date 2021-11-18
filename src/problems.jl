@@ -205,6 +205,16 @@ function compressed_sensing_problem(m, d, k)
   return CompressedSensingProblem(A, x, A * x, k)
 end
 
+"""
+  initializer(problem::CompressedSensingProblem, δ::Float64)
+
+Return an initial estimate of the solution of a compressed sensing `problem`
+with normalized distance `δ` from the ground truth.
+"""
+function initializer(problem::CompressedSensingProblem, δ::Float64)
+  return problem.x + δ * normalize(randn(length(problem.x)))
+end
+
 # TODO:
 # 1) sparse logistic regression
 # 2) linear / quadratic programming
