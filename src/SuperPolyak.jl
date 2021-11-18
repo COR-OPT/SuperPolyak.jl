@@ -10,6 +10,7 @@ const norm = LinearAlgebra.norm
 const normalize = LinearAlgebra.normalize
 const opnorm = LinearAlgebra.opnorm
 const qr = LinearAlgebra.qr
+const rank = LinearAlgebra.rank
 const sample = StatsBase.sample
 
 include("problems.jl")
@@ -48,6 +49,21 @@ function argmin_parentindex(v::Vector{Float64}, b::BitVector)
   return first(parentindices(v))[argmin(v)]
 end
 
+"""
+  pick_best_candidate(candidates, residuals, y₀, ϵ)
+
+Pick the best candidate among a list of `candidates` (with one candidate
+per column) with corresponding `residuals`. Return the candidate with the
+lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ`.
+If no such candidate exists, return `nothing`.
+"""
+function pick_best_candidate(candidates, residuals, y₀, ϵ)
+  valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< ϵ
+  (sum(valid_inds) == 0) && return nothing
+  best_idx = argmin_parentindex(residuals, valid_inds)
+  @debug "best_idx = $(best_idx) -- R = $(residuals[best_idx])"
+  return candidates[:, best_idx]
+end
 
 """
   build_bundle(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64)
@@ -88,13 +104,11 @@ function build_bundle(
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * f(x₀))
       @debug "Early stopping at idx = $(bundle_idx)"
-      candidates = solns[:, 1:(bundle_idx - 1)]
-      isempty(candidates) && return nothing
-      valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< (η * f(x₀))^2
-      (sum(valid_inds) == 0) && return nothing
-      best_idx = argmin_parentindex(resid[1:(bundle_idx-1)], valid_inds)
-      @debug "best_idx = $(best_idx) -- R = $(resid[best_idx])"
-      return candidates[:, best_idx]
+      return pick_best_candidate(
+        solns[:, 1:(bundle_idx-1)],
+        resid[1:(bundle_idx-1)],
+        y₀,
+        η * f(x₀))
     end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y)
@@ -151,21 +165,27 @@ function build_bundle_qr(
     # qrinsert!(Q, R, v): QR = Aᵀ and v is the column added.
     # Only assign to R since Q is modified in-place.
     R = qrinsert!(Q, R, bundle[bundle_idx, :])
-    # TODO: Terminate if rank deficiency is detected.
+    # Terminate if rank deficiency is detected.
+    if (rank(R) < bundle_idx)
+      @debug "Stopping at idx = $(bundle_idx) - reason: singular R"
+      return pick_best_candidate(
+        solns[:, 1:(bundle_idx - 1)],
+        resid[1:(bundle_idx - 1)],
+        y₀,
+        η * f(x₀))
+    end
     y =
       y₀ -
       view(Q, :, 1:bundle_idx) *
       (R' \ ((fvals.-jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * f(x₀))
-      @debug "Early stopping at idx = $(bundle_idx)"
-      candidates = solns[:, 1:(bundle_idx - 1)]
-      isempty(candidates) && return nothing
-      valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< (η * f(x₀))^2
-      (sum(valid_inds) == 0) && return nothing
-      best_idx = argmin_parentindex(resid[1:(bundle_idx-1)], valid_inds)
-      @debug "best_idx = $(best_idx) -- R = $(resid[best_idx])"
-      return candidates[:, best_idx]
+      @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
+      return pick_best_candidate(
+        solns[:, 1:(bundle_idx-1)],
+        resid[1:(bundle_idx-1)],
+        y₀,
+        η * f(x₀))
     end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y)
