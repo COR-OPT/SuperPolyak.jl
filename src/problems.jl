@@ -147,95 +147,62 @@ function max_affine_regression_problem(m, d, k)
   return MaxAffineRegressionProblem(A, βs, maximum(A * βs, dims = 2)[:])
 end
 
-struct LassoProblem
+struct CompressedSensingProblem
   A::Matrix{Float64}
   x::Vector{Float64}
   y::Vector{Float64}
-  λ::Float64
+  k::Int
 end
 
-"""
-  proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+function proj_sparse(x::Vector{Float64}, k::Int)
+  x[sortperm(abs.(x), rev=true)[(k+1):end]] .= 0
+  return x
+end
 
-Compute a proximal gradient step with step `τ` for a LASSO `problem` at `x`.
-"""
-function proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+function dist_sparse(x::Vector{Float64}, k::Int)
+  return norm(x - proj_sparse(x[:], k))
+end
+
+function grad_sparse(x::Vector{Float64}, k::Int)
+  x₊ = proj_sparse(x[:], k)
+  ds = norm(x₊ - x)
+  return (ds ≤ 1e-15) ? zeros(length(x)) : (x - x₊) / ds
+end
+
+function proj_range(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64})
+  return x + A \ (y - A * x)
+end
+
+function dist_range(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64})
+  return norm(x - proj_range(A, x, y))
+end
+
+function grad_range(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64})
+  x₊ = proj_range(A, x, y)
+  ds = norm(x₊ - x)
+  return (ds ≤ 1e-15) ? zeros(length(x)) : (x - x₊) / ds
+end
+
+function loss(problem::CompressedSensingProblem)
   A = problem.A
   y = problem.y
-  λ = problem.λ
-  return ℓ₁prox(x - τ * A' * (A * x - y), λ * τ)
+  k = problem.k
+  m, d = size(A)
+  return z -> dist_sparse(z, k) + dist_range(A, z, y)
 end
 
-"""
-  ℓ₁prox(x, λ)
-
-Return the proximal operator of `|x|₁` with proximal parameter `λ`.
-"""
-function ℓ₁prox(x, λ)
-  return sign.(x) .* max.(abs.(x) .- λ, 0)
-end
-
-"""
-  estimate_params(problem::LassoProblem) -> (λ, τ)
-
-Estimate the parameters `λ` (ℓ₁ norm penalty) and `τ` (gradient step size)
-for a LASSO regression `problem`.
-"""
-function estimate_params(problem::LassoProblem)
-  return (0.1 * norm(problem.A' * problem.y, Inf), 1 / (opnorm(problem.A)^2))
-end
-
-"""
-  residual(problem::LassoProblem, τ::Float64)
-
-Compute the residual `I - T`, where `T` is the proximal gradient operator
-for a LASSO problem with ℓ₁ penalty `τ`.
-"""
-function residual(problem::LassoProblem, τ::Float64)
-  return z -> z - proximal_gradient(problem, z, τ)
-end
-
-"""
-  jacobian(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
-
-Compute the Jacobian of `I - T`, where `T` is the proximal gradient operator
-for a LASSO problem with ℓ₁ penalty `τ` at `x`.
-"""
-function jacobian(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+function subgradient(problem::CompressedSensingProblem)
   A = problem.A
   y = problem.y
-  λ = problem.λ
-  return I - Diagonal(abs.(x - τ * A' * (A * x - y)) .≥ λ * τ) * (I - τ * A'A)
+  k = problem.k
+  m, d = size(A)
+  return z -> grad_sparse(z, k) + grad_range(A, z, y)
 end
 
-function loss(problem::LassoProblem, τ::Float64)
-  return z -> norm(z - proximal_gradient(problem, z, τ))
-end
-
-function subgradient(problem::LassoProblem, τ::Float64)
-  A = problem.A
-  y = problem.y
-  λ = problem.λ
-  G = A'A
-  w = A'y
-  g(z) = begin
-    r = z - proximal_gradient(problem, z, τ)
-    return (LinearAlgebra.I - Diagonal(abs.(z - τ * (G * z - w)) .≥ λ * τ) * (
-      LinearAlgebra.I - τ * G
-    ))' * normalize(r)
-  end
-  return g
-end
-
-function lasso_problem(m, d, k; kwargs...)
-  # Use a well-conditioned design matrix.
-  A = Matrix(qr(randn(d, m)).Q)'
+function compressed_sensing_problem(m, d, k)
+  A = randn(m, d)
   x = generate_sparse_vector(d, k)
-  # Standard deviation of Gaussian noise.
-  σ = get(kwargs, :σ, 0.0)
-  y = A * x + σ * randn(m)
-  λ = get(kwargs, :λ, 0.1 * norm(A'y, Inf))
-  return LassoProblem(A, x, y, λ)
+  return CompressedSensingProblem(A, x, A * x, k)
 end
 
 # TODO:
