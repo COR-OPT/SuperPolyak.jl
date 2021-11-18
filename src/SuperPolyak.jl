@@ -59,16 +59,19 @@ Runs `d` steps and returns an element `yi` such that:
 If no iterate satisfies the above, the function outputs `nothing`.
 """
 function build_bundle(
-  f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64,
+  f::Function,
+  gradf::Function,
+  x₀::Vector{Float64},
+  η::Float64,
 )
   d = length(x₀)
   # Allocate bundle, function + jacobian values.
   bundle = zeros(d, d)
-  fvals  = zeros(d)
-  jvals  = zeros(d)
-  resid  = zeros(d)
+  fvals = zeros(d)
+  jvals = zeros(d)
+  resid = zeros(d)
   # Matrix of iterates - column i is the i-th iterate.
-  solns  = zeros(d, d)
+  solns = zeros(d, d)
   y₀ = x₀[:]
   y = x₀[:]
   for bundle_idx in 1:d
@@ -77,13 +80,13 @@ function build_bundle(
     jvals[bundle_idx] = gradf(y)'y
     A = bundle[1:bundle_idx, :]
     # Compute new point, add to list of candidates
-    y = y₀ - A \ ((fvals .- jvals)[1:bundle_idx] + A * y₀)
+    y = y₀ - A \ ((fvals.-jvals)[1:bundle_idx] + A * y₀)
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y)
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
   # Index i is valid if `|yᵢ - y₀| < η * f(x₀)`
-  valid_inds = sum((solns .- y₀).^2, dims=1)[:] .< (η * f(x₀))^2
+  valid_inds = sum((solns .- y₀) .^ 2, dims = 1)[:] .< (η * f(x₀))^2
   (sum(valid_inds) == 0) && return nothing
   best_idx = argmin_parentindex(resid, valid_inds)
   @debug "best_idx = $(best_idx) -- R = $(resid[best_idx])"
@@ -98,17 +101,20 @@ An efficient version of the BuildBundle algorithm using an incrementally
 updated QR factorization. Total runtime is O(d³) instead of O(d⁴).
 """
 function build_bundle_qr(
-  f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64,
+  f::Function,
+  gradf::Function,
+  x₀::Vector{Float64},
+  η::Float64,
 )
   d = length(x₀)
   bundle = zeros(d, d)
-  fvals  = zeros(d)
-  jvals  = zeros(d)
-  resid  = zeros(d)
+  fvals = zeros(d)
+  jvals = zeros(d)
+  resid = zeros(d)
   # Matrix of iterates - column i is the i-th iterate.
   solns = zeros(d, d)
   y₀ = x₀[:]
-  y  = x₀[:]
+  y = x₀[:]
   # To obtain a solution equivalent to applying the pseudoinverse, we use the
   # QR factorization of the transpose of the bundle matrix. This is because the
   # minimum-norm solution to Ax = b when A is full row rank can be found via the
@@ -131,15 +137,16 @@ function build_bundle_qr(
     # Only assign to R since Q is modified in-place.
     R = qrinsert!(Q, R, bundle[bundle_idx, :])
     # TODO: Terminate if rank deficiency is detected.
-    y = y₀ - view(Q, :, 1:bundle_idx) * (
-      R' \ ((fvals .- jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀)
-    )
+    y =
+      y₀ -
+      view(Q, :, 1:bundle_idx) *
+      (R' \ ((fvals.-jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y)
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
   # Index `i` is valid if `|yᵢ - y₀| < η * f(x₀)`.
-  valid_inds = sum((solns .- y₀).^2, dims=1)[:] .< (η * f(x₀))^2
+  valid_inds = sum((solns .- y₀) .^ 2, dims = 1)[:] .< (η * f(x₀))^2
   (sum(valid_inds) == 0) && return nothing
   best_idx = argmin_parentindex(resid, valid_inds)
   @debug "best_idx = $(best_idx) -- error = $(resid[best_idx])"
@@ -165,7 +172,7 @@ function bundle_newton(
   ϵ_distance::Float64 = (3 / 2),
   min_f::Float64 = 0.0,
   use_qr_bundle::Bool = true,
-  kwargs...
+  kwargs...,
 )
   # TODO: Check input for values of `ϵ_decrease`, `ϵ_distance`
   x = x₀[:]
@@ -173,7 +180,9 @@ function bundle_newton(
   idx = 0
   while true
     η = ϵ_distance^(idx)
-    bundle_step = (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η) : build_bundle(f, gradf, x, η)
+    bundle_step =
+      (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η) :
+      build_bundle(f, gradf, x, η)
     if isnothing(bundle_step) || (f(bundle_step) > ϵ_decrease * f(x))
       x = polyak_sgm(f, gradf, x, ϵ_decrease * f(x), min_f)
     else

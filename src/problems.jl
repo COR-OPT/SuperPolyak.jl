@@ -10,14 +10,15 @@ struct PhaseRetrievalProblem
 end
 
 function loss(problem::PhaseRetrievalProblem)
-  return z -> (1 / length(problem.y)) * norm((problem.A * z).^2 .- problem.y, 1)
+  return z ->
+    (1 / length(problem.y)) * norm((problem.A * z) .^ 2 .- problem.y, 1)
 end
 
 function subgradient(problem::PhaseRetrievalProblem)
   m = length(problem.y)
   A = problem.A
   y = problem.y
-  return z -> (2 / m) * A' * (sign.((A * z).^2 - y) .* (A * z))
+  return z -> (2 / m) * A' * (sign.((A * z) .^ 2 - y) .* (A * z))
 end
 
 """
@@ -33,7 +34,7 @@ end
 function phase_retrieval_problem(m, d)
   A = randn(m, d)
   x = normalize(randn(d))
-  return PhaseRetrievalProblem(A, x, (A * x).^2)
+  return PhaseRetrievalProblem(A, x, (A * x) .^ 2)
 end
 
 struct BilinearSensingProblem
@@ -62,8 +63,7 @@ function subgradient(problem::BilinearSensingProblem)
     x = z[(d+1):end]
     r = (L * w) .* (R * x) .- y
     s = sign.(r)
-    return (1 / m) .* vcat(L' * (s .* (R * x)),
-                           R' * (s .* (L * w)))
+    return (1 / m) .* vcat(L' * (s .* (R * x)), R' * (s .* (L * w)))
   end
   return g
 end
@@ -96,15 +96,15 @@ Generate a random length-`d` vector of unit norm with `k` nonzero elements.
 """
 function generate_sparse_vector(d, k)
   x = zeros(d)
-  x[sample(1:d, k, replace=false)] = normalize(randn(k))
+  x[sample(1:d, k, replace = false)] = normalize(randn(k))
   return x
 end
 
 struct MaxAffineRegressionProblem
-  A  :: Matrix{Float64}
+  A::Matrix{Float64}
   # True slopes of each affine piece, one per column.
-  βs :: Matrix{Float64}
-  y  :: Vector{Float64}
+  βs::Matrix{Float64}
+  y::Vector{Float64}
 end
 
 function loss(problem::MaxAffineRegressionProblem)
@@ -113,7 +113,7 @@ function loss(problem::MaxAffineRegressionProblem)
   d, k = size(problem.βs)
   # Assumes the input is a flattened version of `βs`, so it must be reshaped
   # before applying the operator `A`.
-  return z -> (1 / m) * norm(maximum(A * reshape(z, d, k), dims=2)[:] .- y, 1)
+  return z -> (1 / m) * norm(maximum(A * reshape(z, d, k), dims = 2)[:] .- y, 1)
 end
 
 function subgradient(problem::MaxAffineRegressionProblem)
@@ -122,10 +122,10 @@ function subgradient(problem::MaxAffineRegressionProblem)
   d, k = size(problem.βs)
   grad_fn(z) = begin
     Z = reshape(z, d, j)
-    signs = sign.(maximum(A * Z, dims=2)[:] .- y)
-    inds  = Int.(A * Z .== maximum(A * Z, dims=2)[:])
+    signs = sign.(maximum(A * Z, dims = 2)[:] .- y)
+    inds = Int.(A * Z .== maximum(A * Z, dims = 2)[:])
     # Without vectorizing, result would be a `d × 1` matrix.
-    return ((1 / length(y)) * A' * (signs .* inds))[:]
+    return ((1/length(y))*A'*(signs.*inds))[:]
   end
 end
 
@@ -142,8 +142,8 @@ end
 
 function max_affine_regression_problem(m, d, k)
   A = randn(m, d)
-  βs = mapslices(normalize, randn(d, k), dims=1)
-  return MaxAffineRegressionProblem(A, βs, maximum(A * βs, dims=2)[:])
+  βs = mapslices(normalize, randn(d, k), dims = 1)
+  return MaxAffineRegressionProblem(A, βs, maximum(A * βs, dims = 2)[:])
 end
 
 struct LassoProblem
@@ -195,7 +195,8 @@ function jacobian(problem::LassoProblem, τ::Float64)
   A = problem.A
   y = problem.y
   λ = problem.λ
-  return z -> I - Diagonal(abs.(z .- (τ .* A' * (A * z .- y))) .≥ λ * τ) * (I - τ .* A'A)
+  return z ->
+    I - Diagonal(abs.(z .- (τ .* A' * (A * z .- y))) .≥ λ * τ) * (I - τ .* A'A)
 end
 
 function lasso_problem(m, d, k, λ)
