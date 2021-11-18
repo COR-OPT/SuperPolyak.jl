@@ -58,6 +58,8 @@ Runs `d` steps and returns an element `yi` such that:
   a) `|yi - x₀| < η * f(x₀)`;
   b) f(yi) has the minimal value among all `y` such that `|y - x₀| < η * f(x₀)`.
 
+The algorithm terminates if `yi` satisfies `|yᵢ - x₀| > η * f(x₀)`.
+
 If no iterate satisfies the above, the function outputs `nothing`.
 """
 function build_bundle(
@@ -83,6 +85,17 @@ function build_bundle(
     A = bundle[1:bundle_idx, :]
     # Compute new point, add to list of candidates
     y = y₀ - A \ ((fvals.-jvals)[1:bundle_idx] + A * y₀)
+    # Terminate early if new point escaped ball around y₀.
+    if (norm(y - y₀) > η * f(x₀))
+      @debug "Early stopping at idx = $(bundle_idx)"
+      candidates = solns[:, 1:(bundle_idx - 1)]
+      isempty(candidates) && return nothing
+      valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< (η * f(x₀))^2
+      (sum(valid_inds) == 0) && return nothing
+      best_idx = argmin_parentindex(resid[1:(bundle_idx-1)], valid_inds)
+      @debug "best_idx = $(best_idx) -- R = $(resid[best_idx])"
+      return candidates[:, best_idx]
+    end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y)
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
@@ -143,6 +156,17 @@ function build_bundle_qr(
       y₀ -
       view(Q, :, 1:bundle_idx) *
       (R' \ ((fvals.-jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
+    # Terminate early if new point escaped ball around y₀.
+    if (norm(y - y₀) > η * f(x₀))
+      @debug "Early stopping at idx = $(bundle_idx)"
+      candidates = solns[:, 1:(bundle_idx - 1)]
+      isempty(candidates) && return nothing
+      valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< (η * f(x₀))^2
+      (sum(valid_inds) == 0) && return nothing
+      best_idx = argmin_parentindex(resid[1:(bundle_idx-1)], valid_inds)
+      @debug "best_idx = $(best_idx) -- R = $(resid[best_idx])"
+      return candidates[:, best_idx]
+    end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y)
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
