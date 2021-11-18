@@ -4,6 +4,7 @@ import LinearAlgebra
 import StatsBase
 
 const givens = LinearAlgebra.givens
+const lmul! = LinearAlgebra.lmul!
 const norm = LinearAlgebra.norm
 const normalize = LinearAlgebra.normalize
 const qr = LinearAlgebra.qr
@@ -116,8 +117,8 @@ function build_bundle_qr(
   fvals[1] = f(y)
   jvals[1] = gradf(y)'y
   Q, R = qr(bundle[1:1, :]')
-  # Use copy(Q) to "unwrap" LinearAlgebra.QRCompactWYQ type.
-  Q = copy(Q)
+  # "Unwrap" LinearAlgebra.QRCompactWYQ type.
+  Q = Q * Matrix(1.0 * LinearAlgebra.I, d, d)
   y = y₀ - Q[:, 1] .* (R' \ [fvals[1] - jvals[1] + y₀'bundle[1, :]])
   solns[:, 1] = y[:]
   resid[1] = f(y)
@@ -126,12 +127,9 @@ function build_bundle_qr(
     bundle[bundle_idx, :] = gradf(y)
     fvals[bundle_idx] = f(y)
     jvals[bundle_idx] = gradf(y)'y
-    # qrinsert(Q, R, v): QR = Aᵀ and v is the column added.
-    Q, R = qrinsert(
-      Q,
-      R,
-      bundle[bundle_idx, :],
-    )
+    # qrinsert!(Q, R, v): QR = Aᵀ and v is the column added.
+    # Only assign to R since Q is modified in-place.
+    R = qrinsert!(Q, R, bundle[bundle_idx, :])
     # TODO: Terminate if rank deficiency is detected.
     y = y₀ - view(Q, :, 1:bundle_idx) * (
       R' \ ((fvals .- jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀)
