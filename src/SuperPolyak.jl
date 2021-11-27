@@ -33,7 +33,7 @@ function polyak_sgm(
   while true
     g = gradf(x)
     x -= (f(x) - min_f) * g / (norm(g)^2)
-    (f(x) ≤ ϵ) && return x
+    ((f(x) - min_f) ≤ ϵ) && return x
   end
 end
 
@@ -58,7 +58,7 @@ lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ`.
 If no such candidate exists, return `nothing`.
 """
 function pick_best_candidate(candidates, residuals, y₀, ϵ)
-  valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< ϵ
+  valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< ϵ^2
   (sum(valid_inds) == 0) && return nothing
   best_idx = argmin_parentindex(residuals, valid_inds)
   @debug "best_idx = $(best_idx) -- R = $(residuals[best_idx])"
@@ -66,15 +66,15 @@ function pick_best_candidate(candidates, residuals, y₀, ϵ)
 end
 
 """
-  build_bundle(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64)
+  build_bundle(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64)
 
 Build a bundle for taking a Newton step in the problem of finding zeros of `f`.
 Runs `d` steps and returns an element `yi` such that:
 
-  a) `|yi - x₀| < η * f(x₀)`;
-  b) f(yi) has the minimal value among all `y` such that `|y - x₀| < η * f(x₀)`.
+  a) `|yᵢ - x₀| < η * (f(x₀) - min_f)`;
+  b) f(yᵢ) has the minimal value among all `y` such that `|y - x₀| < η * (f(x₀) - min_f)`.
 
-The algorithm terminates if `yi` satisfies `|yᵢ - x₀| > η * f(x₀)`.
+The algorithm terminates if `yᵢ` satisfies `|yᵢ - x₀| > η * (f(x₀) - min_f)`.
 
 If no iterate satisfies the above, the function outputs `nothing`.
 """
@@ -83,6 +83,7 @@ function build_bundle(
   gradf::Function,
   x₀::Vector{Float64},
   η::Float64,
+  min_f::Float64,
 )
   d = length(x₀)
   # Allocate bundle, function + jacobian values.
@@ -96,35 +97,31 @@ function build_bundle(
   y = x₀[:]
   for bundle_idx in 1:d
     bundle[bundle_idx, :] = gradf(y)
-    fvals[bundle_idx] = f(y)
+    fvals[bundle_idx] = f(y) - min_f
     jvals[bundle_idx] = gradf(y)'y
     A = bundle[1:bundle_idx, :]
     # Compute new point, add to list of candidates
     y = y₀ - A \ ((fvals.-jvals)[1:bundle_idx] + A * y₀)
     # Terminate early if new point escaped ball around y₀.
-    if (norm(y - y₀) > η * f(x₀))
+    if (norm(y - y₀) > η * (f(x₀) - min_f))
       @debug "Early stopping at idx = $(bundle_idx)"
       return pick_best_candidate(
         solns[:, 1:(bundle_idx-1)],
         resid[1:(bundle_idx-1)],
         y₀,
-        η * f(x₀))
+        η * (f(x₀) - min_f),
+      )
     end
     solns[:, bundle_idx] = y[:]
-    resid[bundle_idx] = f(y)
+    resid[bundle_idx] = f(y) - min_f
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
-  # Index i is valid if `|yᵢ - y₀| < η * f(x₀)`
-  valid_inds = sum((solns .- y₀) .^ 2, dims = 1)[:] .< (η * f(x₀))^2
-  (sum(valid_inds) == 0) && return nothing
-  best_idx = argmin_parentindex(resid, valid_inds)
-  @debug "best_idx = $(best_idx) -- R = $(resid[best_idx])"
-  return solns[:, best_idx]
+  return pick_best_candidate(solns, resid, y₀, η * (f(x₀) - min_f))
 end
 
 
 """
-  build_bundle_qr(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64)
+  build_bundle_qr(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64)
 
 An efficient version of the BuildBundle algorithm using an incrementally
 updated QR factorization. Total runtime is O(d³) instead of O(d⁴).
@@ -134,6 +131,7 @@ function build_bundle_qr(
   gradf::Function,
   x₀::Vector{Float64},
   η::Float64,
+  min_f::Float64,
 )
   d = length(x₀)
   bundle = zeros(d, d)
@@ -149,18 +147,18 @@ function build_bundle_qr(
   # minimum-norm solution to Ax = b when A is full row rank can be found via the
   # QR factorization of Aᵀ.
   bundle[1, :] = gradf(y)
-  fvals[1] = f(y)
+  fvals[1] = f(y) - min_f
   jvals[1] = gradf(y)'y
   Q, R = qr(bundle[1:1, :]')
   # "Unwrap" LinearAlgebra.QRCompactWYQ type.
   Q = Q * Matrix(1.0 * LinearAlgebra.I, d, d)
   y = y₀ - Q[:, 1] .* (R' \ [fvals[1] - jvals[1] + y₀'bundle[1, :]])
   solns[:, 1] = y[:]
-  resid[1] = f(y)
+  resid[1] = f(y) - min_f
   @debug "bundle_idx = 1 - error: $(resid[1])"
   for bundle_idx in 2:d
     bundle[bundle_idx, :] = gradf(y)
-    fvals[bundle_idx] = f(y)
+    fvals[bundle_idx] = f(y) - min_f
     jvals[bundle_idx] = gradf(y)'y
     # qrinsert!(Q, R, v): QR = Aᵀ and v is the column added.
     # Only assign to R since Q is modified in-place.
@@ -172,31 +170,28 @@ function build_bundle_qr(
         solns[:, 1:(bundle_idx - 1)],
         resid[1:(bundle_idx - 1)],
         y₀,
-        η * f(x₀))
+        η * (f(x₀) - min_f),
+      )
     end
     y =
       y₀ -
       view(Q, :, 1:bundle_idx) *
       (R' \ ((fvals.-jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
     # Terminate early if new point escaped ball around y₀.
-    if (norm(y - y₀) > η * f(x₀))
+    if (norm(y - y₀) > η * (f(x₀) - min_f))
       @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
       return pick_best_candidate(
         solns[:, 1:(bundle_idx-1)],
         resid[1:(bundle_idx-1)],
         y₀,
-        η * f(x₀))
+        η * (f(x₀) - min_f),
+      )
     end
     solns[:, bundle_idx] = y[:]
-    resid[bundle_idx] = f(y)
+    resid[bundle_idx] = f(y) - min_f
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
-  # Index `i` is valid if `|yᵢ - y₀| < η * f(x₀)`.
-  valid_inds = sum((solns .- y₀) .^ 2, dims = 1)[:] .< (η * f(x₀))^2
-  (sum(valid_inds) == 0) && return nothing
-  best_idx = argmin_parentindex(resid, valid_inds)
-  @debug "best_idx = $(best_idx) -- error = $(resid[best_idx])"
-  return solns[:, best_idx]
+  return pick_best_candidate(solns, resid, y₀, η * (f(x₀) - min_f))
 end
 
 
@@ -222,20 +217,20 @@ function bundle_newton(
 )
   # TODO: Check input for values of `ϵ_decrease`, `ϵ_distance`
   x = x₀[:]
-  fvals = [f(x₀)]
+  fvals = [f(x₀) - min_f]
   idx = 0
   while true
     η = ϵ_distance^(idx)
     bundle_step =
-      (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η) :
-      build_bundle(f, gradf, x, η)
-    if isnothing(bundle_step) || (f(bundle_step) > ϵ_decrease * f(x))
+      (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f) :
+      build_bundle(f, gradf, x, η, min_f)
+      if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
       x = polyak_sgm(f, gradf, x, ϵ_decrease * f(x), min_f)
     else
       x = bundle_step[:]
     end
     idx += 1
-    push!(fvals, f(x))
+    push!(fvals, f(x) - min_f)
     (fvals[end] ≤ ϵ_tol) && return x, fvals
   end
 end
