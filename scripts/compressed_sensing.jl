@@ -7,32 +7,40 @@ using Random
 
 using SuperPolyak
 
-function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance)
+function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
   problem = SuperPolyak.compressed_sensing_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   x_init = SuperPolyak.initializer(problem, δ)
-  _, loss_history = SuperPolyak.bundle_newton(
+  _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     x_init,
     ϵ_decrease = ϵ_decrease,
     ϵ_distance = ϵ_distance,
   )
-  df_bundle = DataFrame(t=1:length(loss_history), fvals=loss_history)
+  T = length(oracle_calls)
+  cumul_oracle_calls =
+    show_amortized ? ((1:T) .* (sum(oracle_calls) ÷ T)) : cumsum(oracle_calls)
+  df_bundle = DataFrame(
+    t = 1:length(loss_history),
+    fvals = loss_history,
+    cumul_oracle_calls = cumul_oracle_calls,
+  )
   CSV.write("compressed_sensing_$(m)_$(d)_$(k).csv", df_bundle)
-  semilogy(loss_history); show()
+  semilogy(cumul_oracle_calls, loss_history, "bo--")
+  show()
 end
 
 settings = ArgParseSettings()
 @add_arg_table! settings begin
-  "--d"
-    arg_type = Int
-    help = "The problem dimension."
-    default = 100
   "--m"
     arg_type = Int
     help = "The number of measurements."
+    default = 50
+  "--d"
+    arg_type = Int
+    help = "The problem dimension."
     default = 500
   "--k"
     arg_type = Int
@@ -56,9 +64,13 @@ settings = ArgParseSettings()
     arg_type = Int
     help = "The seed for the random number generator."
     default = 123
+  "--show-amortized"
+    help = "Set to plot the residual vs. the amortized number of oracle calls."
+    action = :store_true
 end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
 run_experiment(args["m"], args["d"], args["k"], args["initial-distance"],
-               args["eps-decrease"], args["eps-distance"])
+               args["eps-decrease"], args["eps-distance"],
+               args["show-amortized"])

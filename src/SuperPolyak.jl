@@ -19,22 +19,50 @@ include("qrinsert.jl")
 """
   polyak_sgm(f::Function, gradf::Function, x₀::Vector{Float64}; ϵ::Float64 = (f(x_0) / 2), min_f::Float64 = 0.0)
 
-Run the Polyak subgradient method assuming a minimal objective value of `0`
-until the function value drops below `ϵ`.
+Run the Polyak subgradient method until the function value drops below `ϵ`.
+Return the final iterate and the total number of calls to the first-order oracle.
 """
 function polyak_sgm(
   f::Function,
   gradf::Function,
   x₀::Vector{Float64},
   ϵ::Float64 = (f(x_0) / 2),
-  min_f::Float64 = 0.0,
+  min_f::Float64 = 0.0;
 )
   x = x₀[:]
+  oracle_calls = 0
   while true
     g = gradf(x)
     x -= (f(x) - min_f) * g / (norm(g)^2)
-    ((f(x) - min_f) ≤ ϵ) && return x
+    oracle_calls += 1
+    ((f(x) - min_f) ≤ ϵ) && return x, oracle_calls
   end
+end
+
+"""
+  subgradient_method(f::Function, gradf::Function, x₀::Vector{Float64}; ϵ::Float64 = 1e-15, min_f::Float64 = 0.0)
+
+Run the Polyak subgradient method until the function value drops below `ϵ`.
+Return the final iterate, the history of function values along iterates, and
+the total number of calls to the first-order oracle.
+"""
+function subgradient_method(
+  f::Function,
+  gradf::Function,
+  x₀::Vector{Float64},
+  ϵ::Float64 = 1e-15,
+  min_f::Float64 = 0.0,
+)
+  x = x₀[:]
+  oracle_calls = 0
+  fvals = [f(x₀)]
+  while (fvals[end] > ϵ)
+    g = gradf(x)
+    x -= (f(x) - min_f) * g / (norm(g)^2)
+    oracle_calls += 1
+    push!(fvals, f(x) - min_f)
+  end
+  return x, fvals, oracle_calls
 end
 
 
@@ -54,15 +82,16 @@ end
 
 Pick the best candidate among a list of `candidates` (with one candidate
 per column) with corresponding `residuals`. Return the candidate with the
-lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ`.
+lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ`, as well
+as the number of candidates considered.
 If no such candidate exists, return `nothing`.
 """
 function pick_best_candidate(candidates, residuals, y₀, ϵ)
   valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< ϵ^2
-  (sum(valid_inds) == 0) && return nothing
+  (sum(valid_inds) == 0) && return nothing, nothing
   best_idx = argmin_parentindex(residuals, valid_inds)
   @debug "best_idx = $(best_idx) -- R = $(residuals[best_idx])"
-  return candidates[:, best_idx]
+  return candidates[:, best_idx], size(candidates, 2)
 end
 
 """
@@ -215,23 +244,32 @@ function bundle_newton(
   use_qr_bundle::Bool = true,
   kwargs...,
 )
-  # TODO: Check input for values of `ϵ_decrease`, `ϵ_distance`
+  if (ϵ_decrease ≥ 1) || (ϵ_decrease < 0)
+    throw(BoundsError(ϵ_decrease, "ϵ_decrease must be between 0 and 1"))
+  end
+  if (ϵ_decrease * ϵ_distance > 1)
+    throw(BoundsError(ϵ_decrease * ϵ_distance,
+                      "ϵ_decrease * ϵ_distance must be < 1"))
+  end
   x = x₀[:]
   fvals = [f(x₀) - min_f]
+  oracle_calls = [0]
   idx = 0
   while true
     η = ϵ_distance^(idx)
-    bundle_step =
+    bundle_step, bundle_calls =
       (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f) :
       build_bundle(f, gradf, x, η, min_f)
-      if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
-      x = polyak_sgm(f, gradf, x, ϵ_decrease * f(x), min_f)
+    if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
+      x, polyak_calls = polyak_sgm(f, gradf, x, ϵ_decrease * f(x), min_f)
+      push!(oracle_calls, polyak_calls)
     else
       x = bundle_step[:]
+      push!(oracle_calls, bundle_calls)
     end
     idx += 1
     push!(fvals, f(x) - min_f)
-    (fvals[end] ≤ ϵ_tol) && return x, fvals
+    (fvals[end] ≤ ϵ_tol) && return x, fvals, oracle_calls
   end
 end
 

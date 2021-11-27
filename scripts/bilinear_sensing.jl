@@ -7,21 +7,36 @@ using Random
 
 using SuperPolyak
 
-function run_experiment(m, d, δ, ϵ_decrease, ϵ_distance)
+function run_experiment(m, d, δ, ϵ_decrease, ϵ_distance, show_amortized)
   problem = SuperPolyak.bilinear_sensing_problem(m, d)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   z_init = SuperPolyak.initializer(problem, δ)
-  _, loss_history = SuperPolyak.bundle_newton(
+  _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     z_init,
     ϵ_decrease = ϵ_decrease,
     ϵ_distance = ϵ_distance,
   )
-  df_bundle = DataFrame(t=1:length(loss_history), fvals=loss_history)
+  T = length(oracle_calls)
+  cumul_oracle_calls =
+    show_amortized ? ((1:T) .* (sum(oracle_calls) ÷ T)) : cumsum(oracle_calls)
+  df_bundle = DataFrame(
+    t = 1:length(loss_history),
+    fvals = loss_history,
+    cumul_oracle_calls = cumsum(oracle_calls),
+  )
   CSV.write("bilinear_sensing_$(m)_$(d).csv", df_bundle)
-  semilogy(loss_history); show()
+  _, loss_history_polyak, oracle_calls_polyak = SuperPolyak.subgradient_method(
+    loss_fn,
+    grad_fn,
+    z_init,
+  )
+  semilogy(cumul_oracle_calls, loss_history, "bo--")
+  semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
+  legend(["BundleNewton", "PolyakSGM"])
+  show()
 end
 
 settings = ArgParseSettings()
@@ -52,9 +67,13 @@ settings = ArgParseSettings()
     arg_type = Int
     help = "The seed for the random number generator."
     default = 123
+  "--show-amortized"
+    help = "Set to plot the residual vs. the amortized number of oracle calls."
+    action = :store_true
 end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
 run_experiment(args["m"], args["d"], args["initial-distance"],
-               args["eps-decrease"], args["eps-distance"])
+               args["eps-decrease"], args["eps-distance"],
+               args["show-amortized"])
