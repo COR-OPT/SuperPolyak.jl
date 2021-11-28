@@ -1,0 +1,55 @@
+\documentclass{standalone}
+
+% Generate convergence plots using PGFplots and the measurements in .csv format
+% Expected format: .csv with columns named `t`, `fvals`, and `cumul_oracle_calls`.
+% Columns should be comma-separated.
+% Expected filename: `max_linear_regression_$(m)_$(d)_$(k)_{bundle,polyak.csv}`, where:
+%   1) $(m) is number of measurements;
+%   2) $(d) is problem dimension;
+%   3) $(k) is number of linear pieces;
+%   4) `bundle` or `polyak` indicates algorithm used to optimize.
+
+% This must be declared before tikz/pgf etc.
+\usepackage[dvipsnames]{xcolor}
+% Color palette using http://colorbrewer2.org/#type=diverging&scheme=RdBu&n=6
+\definecolor{lblue}{HTML}{908cc0}
+\definecolor{mblue}{HTML}{519cc8}
+\definecolor{hblue}{HTML}{1d5996}
+\definecolor{lred}{HTML}{cb5501}
+\definecolor{mred}{HTML}{f1885b}
+\definecolor{hred}{HTML}{b3001e}
+\definecolor{ttred}{HTML}{ca3542}
+
+\usepackage{svg}
+\usepackage{tikz,pgfplots}
+\usepackage{xfrac}
+
+\begin{document}
+\begin{tikzpicture}% table
+    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
+				 enlargelimits=false, ymin=1e-16, ymax=2.0, xmax=2000,
+         legend cell align=left, legend pos=north east,
+				 legend style={nodes={scale=1.0, transform shape}},
+         legend entries={{$r=2$}, {$r=4$}, {$r=8$},
+                         {\texttt{SuperPolyak}},
+                         {\texttt{PolyakSGM}}}]
+  \addlegendimage{mark=o, very thick, color=lblue};
+  \addlegendimage{mark=square, very thick, color=mblue};
+  \addlegendimage{mark=triangle, very thick, color=hblue};
+  \addlegendimage{no markers, very thick, solid};
+  \addlegendimage{no markers, very thick, dashed};
+	\addplot[mark=o, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./max_linear_regression_100_25_2_bundle.csv};
+	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./max_linear_regression_100_25_2_polyak.csv};
+  \addplot[mark=square, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./max_linear_regression_200_25_4_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./max_linear_regression_200_25_4_polyak.csv};
+  \addplot[mark=triangle, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
+    {./max_linear_regression_400_25_8_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
+    {./max_linear_regression_400_25_8_polyak.csv};
+	\end{axis}
+\end{tikzpicture}
+\end{document}
