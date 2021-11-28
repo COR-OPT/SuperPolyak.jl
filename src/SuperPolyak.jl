@@ -1,6 +1,7 @@
 module SuperPolyak
 
 import LinearAlgebra
+import SparseArrays
 import StatsBase
 
 const Diagonal = LinearAlgebra.Diagonal
@@ -12,8 +13,10 @@ const opnorm = LinearAlgebra.opnorm
 const qr = LinearAlgebra.qr
 const rank = LinearAlgebra.rank
 const sample = StatsBase.sample
+const spzeros = SparseArrays.spzeros
 
 include("problems.jl")
+include("sparse_regression_problems.jl")
 include("qrinsert.jl")
 
 """
