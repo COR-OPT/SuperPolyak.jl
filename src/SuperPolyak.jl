@@ -15,6 +15,7 @@ const rank = LinearAlgebra.rank
 const sample = StatsBase.sample
 const spzeros = SparseArrays.spzeros
 
+include("chambolle_pock.jl")
 include("problems.jl")
 include("sparse_regression_problems.jl")
 include("qrinsert.jl")
