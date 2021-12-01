@@ -37,6 +37,64 @@ function phase_retrieval_problem(m, d)
   return PhaseRetrievalProblem(A, x, (A * x) .^ 2)
 end
 
+"""
+  QuadraticSensingProblem
+
+A symmetrized quadratic sensing problem with measurements
+
+  yᵢ = |pᵢ'X|² - |qᵢ'X|²,
+
+where pᵢ and qᵢ are iid Gaussian vectors.
+"""
+struct QuadraticSensingProblem
+  P::Matrix{Float64}
+  Q::Matrix{Float64}
+  X::Matrix{Float64}
+  y::Vector{Float64}
+end
+
+function loss(problem::QuadraticSensingProblem)
+  d, k = size(problem.X)
+  m = length(problem.y)
+  P = problem.P
+  Q = problem.Q
+  y = problem.y
+  loss_fn(z) = begin
+    Z = reshape(z, d, k)
+    return (1 / m) * norm(y - sum((P * Z).^2, dims=2)[:] + sum((Q * Z).^2, dims=2)[:], 1)
+  end
+  return loss_fn
+end
+
+function subgradient(problem::QuadraticSensingProblem)
+  d, k = size(problem.X)
+  m = length(problem.y)
+  P = problem.P
+  Q = problem.Q
+  y = problem.y
+  grad_fn(z) = begin
+    Z = reshape(z, d, k)
+    r = sign.(sum((P * Z).^2, dims=2)[:] - sum((Q * Z).^2, dims=2)[:] - y)
+    L = P * Z
+    R = Q * Z
+    return vec((2 / m) * (P' * (r .* L) - Q' * (r .* R)))
+  end
+  return grad_fn
+end
+
+function initializer(problem::QuadraticSensingProblem, δ::Float64)
+  Δ = randn(size(problem.X))
+  return problem.X + δ * (Δ / norm(Δ))
+end
+
+function quadratic_sensing_problem(m::Int, d::Int, r::Int)
+  X = Matrix(qr(randn(d, r)).Q)
+  P = randn(m, d)
+  Q = randn(m, d)
+  y = sum((P * X).^2, dims=2)[:] - sum((Q * X).^2, dims=2)[:]
+  return QuadraticSensingProblem(P, Q, X, y)
+end
+
 struct BilinearSensingProblem
   L::Matrix{Float64}
   R::Matrix{Float64}

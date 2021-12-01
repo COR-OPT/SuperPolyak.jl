@@ -9,15 +9,16 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
-  problem = SuperPolyak.max_affine_regression_problem(m, d, k)
+function run_experiment(m, d, r, δ, ϵ_decrease, ϵ_distance, show_amortized)
+  problem = SuperPolyak.quadratic_sensing_problem(m, d, r)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
-  βs_init = SuperPolyak.initializer(problem, δ)
+  x_init = SuperPolyak.initializer(problem, δ)
   _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
-    βs_init[:],  # Vectorize for compatibility with bundle_newton(...)
+    x_init[:],
+    ϵ_tol = 1e-14,
     ϵ_decrease = ϵ_decrease,
     ϵ_distance = ϵ_distance,
   )
@@ -27,18 +28,19 @@ function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
     fvals = loss_history,
     cumul_oracle_calls = cumul_oracle_calls,
   )
-  CSV.write("max_linear_regression_$(m)_$(d)_$(k)_bundle.csv", df_bundle)
+  CSV.write("quadratic_sensing_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
   _, loss_history_polyak, oracle_calls_polyak = SuperPolyak.subgradient_method(
     loss_fn,
     grad_fn,
-    βs_init[:],
+    x_init[:],
+    1e-14,
   )
   df_polyak = DataFrame(
     t = 1:length(loss_history_polyak),
     fvals = loss_history_polyak,
     cumul_oracle_calls = 0:oracle_calls_polyak,
   )
-  CSV.write("max_linear_regression_$(m)_$(d)_$(k)_polyak.csv", df_polyak)
+  CSV.write("quadratic_sensing_$(m)_$(d)_$(r)_polyak.csv", df_polyak)
   semilogy(cumul_oracle_calls, loss_history, "bo--")
   semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
   legend(["BundleNewton", "PolyakSGM"])
@@ -51,14 +53,14 @@ settings = ArgParseSettings()
     arg_type = Int
     help = "The problem dimension."
     default = 100
+  "--r"
+    arg_type = Int
+    help = "The rank of the unknown signal."
+    default = 2
   "--m"
     arg_type = Int
     help = "The number of measurements."
-    default = 500
-  "--k"
-    arg_type = Int
-    help = "The number of linear pieces."
-    default = 5
+    default = 400
   "--initial-distance"
     arg_type = Float64
     help = "The normalized initial distance from the solution set."
@@ -84,6 +86,6 @@ end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
-run_experiment(args["m"], args["d"], args["k"], args["initial-distance"],
+run_experiment(args["m"], args["d"], args["r"], args["initial-distance"],
                args["eps-decrease"], args["eps-distance"],
                args["show-amortized"])
