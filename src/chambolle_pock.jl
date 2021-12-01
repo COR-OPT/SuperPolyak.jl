@@ -16,7 +16,7 @@ function seminorm(problem::LinearProgram, τ::Float64, z::Vector{Float64})
   return (1 / τ) * (norm(x)^2 + norm(y)^2) - 2 * y' * (problem.A * x)
 end
 
-function proximal_gradient(problem::LinearProgram, τ::Float64, z::Vector{Float64})
+function chambolle_pock(problem::LinearProgram, τ::Float64, z::Vector{Float64})
   A = problem.A
   b = problem.b
   c = problem.c
@@ -28,7 +28,7 @@ function proximal_gradient(problem::LinearProgram, τ::Float64, z::Vector{Float6
 end
 
 function loss(problem::LinearProgram, τ::Float64 = 0.9 / opnorm(problem.A))
-  return z -> norm(z - proximal_gradient(problem, τ, z))
+  return z -> norm(z - chambolle_pock(problem, τ, z))
 end
 
 function subgradient(problem::LinearProgram, τ::Float64 = 0.9 / opnorm(problem.A))
@@ -39,7 +39,7 @@ function subgradient(problem::LinearProgram, τ::Float64 = 0.9 / opnorm(problem.
   G(z) = begin
     x = z[1:d]
     y = z[(d+1):end]
-    r = z - proximal_gradient(problem, τ, z)
+    r = z - chambolle_pock(problem, τ, z)
     q = (norm(r) ≤ 1e-15) ? zeros(length(z)) : normalize(r)
     D = Diagonal([(x + τ * (A' * (y - 2τ * (A * x - b)) - c)) .≥ 0;
                   ones(m)])
