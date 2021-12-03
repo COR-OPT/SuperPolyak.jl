@@ -71,11 +71,10 @@ end
 
 function lasso_problem(m::Int, d::Int, k::Int, σ::Float64 = 0.01; kwargs...)
   x = generate_sparse_vector(d, k)
-  A = randn(m, d)
-  A ./= sqrt.(sum(A.^2, dims=1))
+  A = Matrix(qr(randn(d, m)).Q)'
+  # A ./= sqrt.(sum(A.^2, dims=1))
   y = A * x + σ .* randn(m)
-  # return LassoProblem(A, x, y, get(kwargs, :λ, norm(A'y, Inf) / 10))
-  return LassoProblem(A, x, y, get(kwargs, :λ, support_recovery_lambda(A, x, σ)))
+  return LassoProblem(A, x, y, get(kwargs, :λ, 0.25 * norm(A'y, Inf)))
 end
 
 function compute_tau(problem::LassoProblem)
