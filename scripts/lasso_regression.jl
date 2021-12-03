@@ -1,6 +1,7 @@
 using ArgParse
 using CSV
 using DataFrames
+using LinearAlgebra
 using Printf
 using PyPlot
 using Random
@@ -14,11 +15,36 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   x_init  = zeros(d)
+  # Define the fallback method.
+  proximal_gradient_method(
+    loss::Function,
+    grad::Function,
+    x::Vector{Float64},
+    ϵ::Float64,
+    min_f::Float64,
+  ) = begin
+    it = 0
+    x₀ = x[:]
+    while true
+      x₀ = SuperPolyak.proximal_gradient(
+        problem.A,
+        x₀,
+        problem.y,
+        problem.λ,
+        0.9 / (opnorm(problem.A)^2),
+      )
+      it += 1
+      if loss(x₀) < ϵ
+        return x₀, it
+      end
+    end
+  end
   _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     x_init[:],
     ϵ_tol = ϵ_tol,
+    fallback_alg = proximal_gradient_method,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, show_amortized)
   df_bundle = DataFrame(

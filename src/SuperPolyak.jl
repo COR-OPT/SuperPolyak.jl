@@ -245,6 +245,7 @@ function bundle_newton(
   ϵ_decrease::Float64 = (1 / 2),
   ϵ_distance::Float64 = (3 / 2),
   min_f::Float64 = 0.0,
+  fallback_alg::Function = polyak_sgm,
   use_qr_bundle::Bool = true,
   kwargs...,
 )
@@ -265,8 +266,8 @@ function bundle_newton(
       (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f) :
       build_bundle(f, gradf, x, η, min_f)
     if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
-      x, polyak_calls = polyak_sgm(f, gradf, x, ϵ_decrease * f(x), min_f)
-      push!(oracle_calls, polyak_calls)
+      x, fallback_calls = fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
+      push!(oracle_calls, fallback_calls)
     else
       x = bundle_step[:]
       push!(oracle_calls, bundle_calls)
