@@ -15,6 +15,7 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   x_init  = zeros(d)
+  τ = 0.9 / (opnorm(problem.A)^2)
   # Define the fallback method.
   proximal_gradient_method(
     loss::Function,
@@ -53,21 +54,22 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
     cumul_oracle_calls = cumul_oracle_calls,
   )
   CSV.write("lasso_$(m)_$(d)_$(k)_bundle.csv", df_bundle)
-  _, loss_history_polyak, oracle_calls_polyak = SuperPolyak.subgradient_method(
+  _, loss_history_vanilla, oracle_calls_vanilla = SuperPolyak.fallback_algorithm(
     loss_fn,
-    grad_fn,
+    z -> SuperPolyak.proximal_gradient(problem.A, z, problem.y, problem.λ, τ),
     x_init[:],
     ϵ_tol,
+    record_loss = true,
   )
-  df_polyak = DataFrame(
-    t = 1:length(loss_history_polyak),
-    fvals = loss_history_polyak,
-    cumul_oracle_calls = 0:oracle_calls_polyak,
+  df_vanilla = DataFrame(
+    t = 1:length(loss_history_vanilla),
+    fvals = loss_history_vanilla,
+    cumul_oracle_calls = 0:oracle_calls_vanilla,
   )
-  CSV.write("lasso_$(m)_$(d)_$(k)_polyak.csv", df_polyak)
+  CSV.write("lasso_$(m)_$(d)_$(k)_vanilla.csv", df_vanilla)
   semilogy(cumul_oracle_calls, loss_history, "bo--")
-  semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
-  legend(["BundleNewton", "PolyakSGM"])
+  semilogy(0:oracle_calls_vanilla, loss_history_vanilla, "r--")
+  legend(["BundleNewton", "Proximal Gradient"])
   show()
 end
 

@@ -15,6 +15,10 @@ const rank = LinearAlgebra.rank
 const sample = StatsBase.sample
 const spzeros = SparseArrays.spzeros
 
+# An abstract type encoding an optimization problem. All concrete problem
+# instances should be subtypes of `OptProblem`.
+abstract type OptProblem end
+
 include("chambolle_pock.jl")
 include("problems.jl")
 include("sparse_regression_problems.jl")
@@ -44,6 +48,21 @@ function polyak_sgm(
 end
 
 """
+  polyak_step(f::Function, gradf::Function, x::Vector{Float64}, min_f::Float64 = 0.0)
+
+Run a single polyak step to minimize `f` starting at `x`.
+"""
+function polyak_step(
+  f::Function,
+  gradf::Function,
+  x::Vector{Float64},
+  min_f::Float64 = 0.0,
+)
+  g = gradf(x)
+  return x - (f(x) - min_f) * g / (norm(g)^2)
+end
+
+"""
   subgradient_method(f::Function, gradf::Function, x₀::Vector{Float64}; ϵ::Float64 = 1e-15, min_f::Float64 = 0.0)
 
 Run the Polyak subgradient method until the function value drops below `ϵ`.
@@ -69,6 +88,41 @@ function subgradient_method(
   return x, fvals, oracle_calls
 end
 
+"""
+  fallback_algorithm(f::Function, A::Function, x₀::Vector{Float64},
+                     ϵ::Float64 = 1e-15, min_f::Float64 = 0.0;
+                     record_loss::Bool = false)
+
+A fallback algorithm to use in the bundle Newton method. Here, `f` is a
+callable implementing the loss function, `A` is a mapping that maps `x`
+to the next iterate `x₊` and `x₀` is the starting vector.
+
+Terminates when `f(x) - min_f ≤ ϵ` and returns the final iterate, a history
+of loss function values (if `record_loss == true`) and the number of oracle
+calls to `A`.
+"""
+function fallback_algorithm(
+  f::Function,
+  A::Function,
+  x₀::Vector{Float64},
+  ϵ::Float64 = 1e-15,
+  min_f::Float64 = 0.0;
+  record_loss::Bool = false,
+)
+  x = x₀[:]
+  oracle_calls = 0
+  fvals = [f(x) - min_f]
+  while (f(x) - min_f) ≥ ϵ
+    x = A(x)
+    oracle_calls += 1
+    (record_loss) && push!(fvals, f(x) - min_f)
+  end
+  if (record_loss)
+    return x, fvals, oracle_calls
+  else
+    return x, oracle_calls
+  end
+end
 
 """
   argmin_parentindex(v::Vector{Float64}, b::BitVector)
