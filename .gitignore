@@ -23,5 +23,14 @@ docs/site/
 # environment.
 Manifest.toml
 
-# Output files of scripts.
+# Output files of Latex and scripts.
 *.csv
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.pdf
+*.blg
+*.bbl
