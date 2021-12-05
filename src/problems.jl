@@ -272,8 +272,3 @@ with normalized distance `δ` from the ground truth.
 function initializer(problem::CompressedSensingProblem, δ::Float64)
   return problem.x + δ * normalize(randn(length(problem.x)))
 end
-
-# TODO:
-# 1) sparse logistic regression
-# 2) linear / quadratic programming
-# 3) Set intersection problems

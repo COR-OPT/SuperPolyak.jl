@@ -9,17 +9,38 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
+function run_experiment(m, d, k, δ, ϵ_tol, show_amortized)
   problem = SuperPolyak.compressed_sensing_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   x_init = SuperPolyak.initializer(problem, δ)
+  # Define the fallback method.
+  alternating_projections_method(
+    loss::Function,
+    grad::Function,
+    x₀::Vector{Float64},
+    ϵ::Float64,
+    min_f::Float64,
+  ) = begin
+    it = 0
+    x = x₀[:]
+    while true
+      x = SuperPolyak.proj_sparse(
+        SuperPolyak.proj_range(problem.A, x, problem.y),
+        k,
+      )
+      it += 1
+      if loss(x) < ϵ
+        return x, it
+      end
+    end
+  end
   _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
-    x_init,
-    ϵ_decrease = ϵ_decrease,
-    ϵ_distance = ϵ_distance,
+    x_init[:],
+    ϵ_tol = ϵ_tol,
+    fallback_alg = alternating_projections_method,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, show_amortized)
   df_bundle = DataFrame(
@@ -28,20 +49,25 @@ function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
     cumul_oracle_calls = cumul_oracle_calls,
   )
   CSV.write("compressed_sensing_$(m)_$(d)_$(k)_bundle.csv", df_bundle)
-  _, loss_history_polyak, oracle_calls_polyak = SuperPolyak.subgradient_method(
+  _, loss_history_vanilla, oracle_calls_vanilla = SuperPolyak.fallback_algorithm(
     loss_fn,
-    grad_fn,
-    x_init,
+    z -> SuperPolyak.proj_sparse(
+      SuperPolyak.proj_range(problem.A, z, problem.y),
+      k,
+    ),
+    x_init[:],
+    ϵ_tol,
+    record_loss = true,
   )
-  df_polyak = DataFrame(
-    t = 1:length(loss_history_polyak),
-    fvals = loss_history_polyak,
-    cumul_oracle_calls = 0:oracle_calls_polyak,
+  df_vanilla = DataFrame(
+    t = 1:length(loss_history_vanilla),
+    fvals = loss_history_vanilla,
+    cumul_oracle_calls = 0:oracle_calls_vanilla,
   )
-  CSV.write("compressed_sensing_$(m)_$(d)_$(k)_polyak.csv", df_polyak)
+  CSV.write("compressed_sensing_$(m)_$(d)_$(k)_vanilla.csv", df_vanilla)
   semilogy(cumul_oracle_calls, loss_history, "bo--")
-  semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
-  legend(["BundleNewton", "PolyakSGM"])
+  semilogy(0:oracle_calls_vanilla, loss_history_vanilla, "r-")
+  legend(["SuperPolyak", "Alternating Projections"])
   show()
 end
 
@@ -63,16 +89,10 @@ settings = ArgParseSettings()
     arg_type = Float64
     help = "The normalized initial distance from the solution set."
     default = 0.5
-  "--eps-decrease"
+  "--eps-tol"
     arg_type = Float64
-    help = "The multiplicative decrease factor for the loss."
-    default = 0.5
-  "--eps-distance"
-    arg_type = Float64
-    help = "A multiplicative factor η for the distance between the initial " *
-           "point `y₀` and the output `y` of the bundle Newton method. It " *
-           "requires that |y - y₀| < η * f(y₀)."
-    default = 1.5
+    help = "The desired tolerance for the final solution."
+    default = 1e-15
   "--seed"
     arg_type = Int
     help = "The seed for the random number generator."
@@ -85,5 +105,4 @@ end
 args = parse_args(settings)
 Random.seed!(args["seed"])
 run_experiment(args["m"], args["d"], args["k"], args["initial-distance"],
-               args["eps-decrease"], args["eps-distance"],
-               args["show-amortized"])
+               args["eps-tol"], args["show-amortized"])
