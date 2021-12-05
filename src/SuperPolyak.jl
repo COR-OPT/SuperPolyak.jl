@@ -141,13 +141,12 @@ end
 
 Pick the best candidate among a list of `candidates` (with one candidate
 per column) with corresponding `residuals`. Return the candidate with the
-lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ`, as well
-as the number of candidates considered.
-If no such candidate exists, return `nothing`.
+lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ` (or `nothing`
+if no such candidate exists) as well as the number of candidates considered.
 """
 function pick_best_candidate(candidates, residuals, y₀, ϵ)
   valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< ϵ^2
-  (sum(valid_inds) == 0) && return nothing, nothing
+  (sum(valid_inds) == 0) && return nothing, size(candidates, 2)
   best_idx = argmin_parentindex(residuals, valid_inds)
   @debug "best_idx = $(best_idx) -- R = $(residuals[best_idx])"
   return candidates[:, best_idx], size(candidates, 2)
@@ -322,7 +321,8 @@ function bundle_newton(
       build_bundle(f, gradf, x, η, min_f)
     if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
       x, fallback_calls = fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
-      push!(oracle_calls, fallback_calls)
+      # Include the number of oracle calls made by the failed bundle step.
+      push!(oracle_calls, fallback_calls + bundle_calls)
     else
       x = bundle_step[:]
       push!(oracle_calls, bundle_calls)
