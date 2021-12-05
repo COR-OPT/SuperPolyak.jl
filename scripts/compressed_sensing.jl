@@ -9,11 +9,11 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, δ, ϵ_tol, show_amortized)
+function run_experiment(m, d, k, ϵ_tol, show_amortized)
   problem = SuperPolyak.compressed_sensing_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
-  x_init = SuperPolyak.initializer(problem, δ)
+  x_init = zeros(d)
   # Define the fallback method.
   alternating_projections_method(
     loss::Function,
@@ -104,5 +104,5 @@ end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
-run_experiment(args["m"], args["d"], args["k"], args["initial-distance"],
+run_experiment(args["m"], args["d"], args["k"],
                args["eps-tol"], args["show-amortized"])
