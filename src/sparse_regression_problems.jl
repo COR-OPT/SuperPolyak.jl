@@ -41,7 +41,7 @@ function subgradient(problem::LassoProblem, τ::Float64 = 0.9 / (opnorm(problem.
     q = (norm(r) ≤ 1e-14) ? zeros(length(z)) : normalize(r)
     # Nonzero indices in diagonal
     D = Diagonal(abs.(z - τ * A' * (A * z - y)) .≥ λ * τ)
-    return q - D * (q - τ * A' * (A * q))
+    return q - (D * q - τ * A'A * (D * q))
   end
   return g
 end
@@ -74,7 +74,7 @@ function lasso_problem(m::Int, d::Int, k::Int, σ::Float64 = 0.01; kwargs...)
   A = Matrix(qr(randn(d, m)).Q)'
   # A ./= sqrt.(sum(A.^2, dims=1))
   y = A * x + σ .* randn(m)
-  return LassoProblem(A, x, y, get(kwargs, :λ, 0.25 * norm(A'y, Inf)))
+  return LassoProblem(A, x, y, get(kwargs, :λ, 0.2 * norm(A'y, Inf)))
 end
 
 function compute_tau(problem::LassoProblem)
