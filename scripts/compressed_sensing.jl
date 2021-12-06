@@ -49,16 +49,17 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
     cumul_oracle_calls = cumul_oracle_calls,
   )
   CSV.write("compressed_sensing_$(m)_$(d)_$(k)_bundle.csv", df_bundle)
-  _, loss_history_vanilla, oracle_calls_vanilla = SuperPolyak.fallback_algorithm(
-    loss_fn,
-    z -> SuperPolyak.proj_sparse(
-      SuperPolyak.proj_range(problem.A, z, problem.y),
-      k,
-    ),
-    x_init[:],
-    ϵ_tol,
-    record_loss = true,
-  )
+  _, loss_history_vanilla, oracle_calls_vanilla =
+    SuperPolyak.fallback_algorithm(
+      loss_fn,
+      z -> SuperPolyak.proj_sparse(
+        SuperPolyak.proj_range(problem.A, z, problem.y),
+        k,
+      ),
+      x_init[:],
+      ϵ_tol,
+      record_loss = true,
+    )
   df_vanilla = DataFrame(
     t = 1:length(loss_history_vanilla),
     fvals = loss_history_vanilla,
@@ -74,35 +75,40 @@ end
 settings = ArgParseSettings()
 @add_arg_table! settings begin
   "--m"
-    arg_type = Int
-    help = "The number of measurements."
-    default = 50
+  arg_type = Int
+  help = "The number of measurements."
+  default = 50
   "--d"
-    arg_type = Int
-    help = "The problem dimension."
-    default = 500
+  arg_type = Int
+  help = "The problem dimension."
+  default = 500
   "--k"
-    arg_type = Int
-    help = "The sparsity of the unknown solution."
-    default = 5
+  arg_type = Int
+  help = "The sparsity of the unknown solution."
+  default = 5
   "--initial-distance"
-    arg_type = Float64
-    help = "The normalized initial distance from the solution set."
-    default = 0.5
+  arg_type = Float64
+  help = "The normalized initial distance from the solution set."
+  default = 0.5
   "--eps-tol"
-    arg_type = Float64
-    help = "The desired tolerance for the final solution."
-    default = 1e-15
+  arg_type = Float64
+  help = "The desired tolerance for the final solution."
+  default = 1e-15
   "--seed"
-    arg_type = Int
-    help = "The seed for the random number generator."
-    default = 999
+  arg_type = Int
+  help = "The seed for the random number generator."
+  default = 999
   "--show-amortized"
-    help = "Set to plot the residual vs. the amortized number of oracle calls."
-    action = :store_true
+  help = "Set to plot the residual vs. the amortized number of oracle calls."
+  action = :store_true
 end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
-run_experiment(args["m"], args["d"], args["k"],
-               args["eps-tol"], args["show-amortized"])
+run_experiment(
+  args["m"],
+  args["d"],
+  args["k"],
+  args["eps-tol"],
+  args["show-amortized"],
+)

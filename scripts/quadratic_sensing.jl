@@ -29,12 +29,8 @@ function run_experiment(m, d, r, δ, ϵ_decrease, ϵ_distance, show_amortized)
     cumul_oracle_calls = cumul_oracle_calls,
   )
   CSV.write("quadratic_sensing_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
-  _, loss_history_polyak, oracle_calls_polyak = SuperPolyak.subgradient_method(
-    loss_fn,
-    grad_fn,
-    x_init[:],
-    1e-14,
-  )
+  _, loss_history_polyak, oracle_calls_polyak =
+    SuperPolyak.subgradient_method(loss_fn, grad_fn, x_init[:], 1e-14)
   df_polyak = DataFrame(
     t = 1:length(loss_history_polyak),
     fvals = loss_history_polyak,
@@ -50,42 +46,49 @@ end
 settings = ArgParseSettings()
 @add_arg_table! settings begin
   "--d"
-    arg_type = Int
-    help = "The problem dimension."
-    default = 100
+  arg_type = Int
+  help = "The problem dimension."
+  default = 100
   "--r"
-    arg_type = Int
-    help = "The rank of the unknown signal."
-    default = 2
+  arg_type = Int
+  help = "The rank of the unknown signal."
+  default = 2
   "--m"
-    arg_type = Int
-    help = "The number of measurements."
-    default = 400
+  arg_type = Int
+  help = "The number of measurements."
+  default = 400
   "--initial-distance"
-    arg_type = Float64
-    help = "The normalized initial distance from the solution set."
-    default = 1.0
+  arg_type = Float64
+  help = "The normalized initial distance from the solution set."
+  default = 1.0
   "--eps-decrease"
-    arg_type = Float64
-    help = "The multiplicative decrease factor for the loss."
-    default = 0.5
+  arg_type = Float64
+  help = "The multiplicative decrease factor for the loss."
+  default = 0.5
   "--eps-distance"
-    arg_type = Float64
-    help = "A multiplicative factor η for the distance between the initial " *
-           "point `y₀` and the output `y` of the bundle Newton method. It " *
-           "requires that |y - y₀| < η * f(y₀)."
-    default = 1.5
+  arg_type = Float64
+  help =
+    "A multiplicative factor η for the distance between the initial " *
+    "point `y₀` and the output `y` of the bundle Newton method. It " *
+    "requires that |y - y₀| < η * f(y₀)."
+  default = 1.5
   "--seed"
-    arg_type = Int
-    help = "The seed for the random number generator."
-    default = 999
+  arg_type = Int
+  help = "The seed for the random number generator."
+  default = 999
   "--show-amortized"
-    help = "Set to plot the residual vs. the amortized number of oracle calls."
-    action = :store_true
+  help = "Set to plot the residual vs. the amortized number of oracle calls."
+  action = :store_true
 end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
-run_experiment(args["m"], args["d"], args["r"], args["initial-distance"],
-               args["eps-decrease"], args["eps-distance"],
-               args["show-amortized"])
+run_experiment(
+  args["m"],
+  args["d"],
+  args["r"],
+  args["initial-distance"],
+  args["eps-decrease"],
+  args["eps-distance"],
+  args["show-amortized"],
+)

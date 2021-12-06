@@ -14,7 +14,7 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
   problem = SuperPolyak.lasso_problem(m, d, k, 0.1)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
-  x_init  = zeros(d)
+  x_init = zeros(d)
   τ = 0.9 / (opnorm(problem.A)^2)
   # Define the fallback method.
   proximal_gradient_method(
@@ -54,13 +54,14 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
     cumul_oracle_calls = cumul_oracle_calls,
   )
   CSV.write("lasso_$(m)_$(d)_$(k)_bundle.csv", df_bundle)
-  x_vanilla, loss_history_vanilla, oracle_calls_vanilla = SuperPolyak.fallback_algorithm(
-    loss_fn,
-    z -> SuperPolyak.proximal_gradient(problem.A, z, problem.y, problem.λ, τ),
-    x_init[:],
-    ϵ_tol,
-    record_loss = true,
-  )
+  x_vanilla, loss_history_vanilla, oracle_calls_vanilla =
+    SuperPolyak.fallback_algorithm(
+      loss_fn,
+      z -> SuperPolyak.proximal_gradient(problem.A, z, problem.y, problem.λ, τ),
+      x_init[:],
+      ϵ_tol,
+      record_loss = true,
+    )
   df_vanilla = DataFrame(
     t = 1:length(loss_history_vanilla),
     fvals = loss_history_vanilla,
@@ -76,31 +77,36 @@ end
 settings = ArgParseSettings()
 @add_arg_table! settings begin
   "--d"
-    arg_type = Int
-    help = "The problem dimension."
-    default = 100
+  arg_type = Int
+  help = "The problem dimension."
+  default = 100
   "--k"
-    arg_type = Int
-    help = "The sparsity of the unknown signal."
-    default = 1
+  arg_type = Int
+  help = "The sparsity of the unknown signal."
+  default = 1
   "--m"
-    arg_type = Int
-    help = "The number of measurements."
-    default = 5
+  arg_type = Int
+  help = "The number of measurements."
+  default = 5
   "--eps-tol"
-    arg_type = Float64
-    help = "The desired tolerance for the final solution."
-    default = 1e-12
+  arg_type = Float64
+  help = "The desired tolerance for the final solution."
+  default = 1e-12
   "--seed"
-    arg_type = Int
-    help = "The seed for the random number generator."
-    default = 999
+  arg_type = Int
+  help = "The seed for the random number generator."
+  default = 999
   "--show-amortized"
-    help = "Set to plot the residual vs. the amortized number of oracle calls."
-    action = :store_true
+  help = "Set to plot the residual vs. the amortized number of oracle calls."
+  action = :store_true
 end
 
 args = parse_args(settings)
 Random.seed!(args["seed"])
-run_experiment(args["m"], args["d"], args["k"], args["eps-tol"],
-               args["show-amortized"])
+run_experiment(
+  args["m"],
+  args["d"],
+  args["k"],
+  args["eps-tol"],
+  args["show-amortized"],
+)
