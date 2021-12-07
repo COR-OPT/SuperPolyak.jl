@@ -14,6 +14,7 @@ const qr = LinearAlgebra.qr
 const rank = LinearAlgebra.rank
 const sample = StatsBase.sample
 const sparse = SparseArrays.sparse
+const SparseMatrixCSC = SparseArrays.SparseMatrixCSC
 const spzeros = SparseArrays.spzeros
 
 # An abstract type encoding an optimization problem. All concrete problem
