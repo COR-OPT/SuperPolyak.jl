@@ -134,17 +134,119 @@ in normalized distance. Output a single vector containing `w₀` and `x₀` stac
 vertically.
 """
 function initializer(problem::BilinearSensingProblem, δ::Float64)
-  w = problem.w + (δ / sqrt(2)) * normalize(randn(length(problem.w)))
-  x = problem.x + (δ / sqrt(2)) * normalize(randn(length(problem.x)))
-  return [w; x]
+  wx_stacked = [problem.w; problem.x]
+  return wx_stacked + δ * normalize(randn(length(wx_stacked)))
 end
 
+"""
+  bilinear_sensing_problem(m::Int, d::Int)
+
+Generate a bilinear sensing problem in `d` dimensions with `m` measurements
+using random Gaussian sensing matrices.
+"""
 function bilinear_sensing_problem(m::Int, d::Int)
   L = randn(m, d)
   R = randn(m, d)
   w = normalize(randn(d))
   x = normalize(randn(d))
   return BilinearSensingProblem(L, R, w, x, (L * w) .* (R * x))
+end
+
+"""
+  GeneralBilinearSensingProblem
+
+A bilinear sensing problem with measurements
+
+  `yᵢ = ℓᵢ'W * X'rᵢ`
+
+where `W` and `X` are `d × r` matrices.
+"""
+struct GeneralBilinearSensingProblem
+  L::Matrix{Float64}
+  R::Matrix{Float64}
+  W::Matrix{Float64}
+  X::Matrix{Float64}
+  y::Vector{Float64}
+end
+
+"""
+  loss(problem::GeneralBilinearSensingProblem)
+
+Implement the ℓ₁ robust loss for a bilinear sensing problem with general rank.
+Assumes that the argument will be a vector containing the "flattened" version
+of the matrix `[W, X]`, where `W` and `X` are `d × r` matrices.
+"""
+function loss(problem::GeneralBilinearSensingProblem)
+  L = problem.L
+  R = problem.R
+  y = problem.y
+  m = length(y)
+  d, r = size(problem.W)
+  loss_fn(z::Vector{Float64}) = begin
+    # Layout assumption: z is a "flattened" version of [W, X] ∈ Rᵈˣ⁽²ʳ⁾.
+    W = reshape(z[1:(d*r)], d, r)
+    X = reshape(z[(d*r + 1):end], d, r)
+    # Compute row-wise product.
+    return (1 / m) * norm(y .- sum((L * W) .* (R * X), dims=2)[:], 1)
+  end
+  return loss_fn
+end
+
+"""
+  subgradient(problem::GeneralBilinearSensingProblem)
+
+Implement the subgradient of the ℓ₁ robust loss for a bilinear sensing problem
+with general rank. Like `loss(problem)`, assumes that the argument will be a
+vector containing the "flattened" version of the matrix `[W, X]`, where `W` and
+`X` are `d × r` matrices.
+"""
+function subgradient(problem::GeneralBilinearSensingProblem)
+  L = problem.L
+  R = problem.R
+  y = problem.y
+  m = length(y)
+  d, r = size(problem.W)
+  grad_fn(z::Vector{Float64}) = begin
+    # Layout assumption: z is a "flattened" version of [W, X] ∈ Rᵈˣ⁽²ʳ⁾.
+    W = reshape(z[1:(d*r)], d, r)
+    X = reshape(z[(d*r + 1):end], d, r)
+    Lw = L * W
+    Rx = R * X
+    rsign = sign.(sum(Lw .* Rx, dims=2)[:] .- y)
+    grad_W = (1 / m) * (rsign .* L)' * Rx
+    grad_X = (1 / m) * (rsign .* R)' * Lw
+    # Flatten the matric [grad_W, grad_X] ∈ Rᵈˣ⁽²ʳ⁾ into a vector of size
+    # 2 × d × r, to match the original layout.
+    return [vec(grad_W); vec(grad_X)]
+  end
+  return grad_fn
+end
+
+"""
+  general_bilinear_sensing_problem(m::Int, d::Int, r::Int)
+
+Generate a bilinear sensing problem with solutions of dimension `d × r` and `m`
+measurements using random Gaussian sensing matrices.
+"""
+function general_bilinear_sensing_problem(m::Int, d::Int, r::Int)
+  L = randn(m, d)
+  R = randn(m, d)
+  # Solutions on the orthogonal manifold O(d, r).
+  W = Matrix(qr(randn(d, r)).Q)
+  X = Matrix(qr(randn(d, r)).Q)
+  y = sum((L * W) .* (R * X), dims=2)[:]
+  return GeneralBilinearSensingProblem(L, R, W, X, y)
+end
+
+"""
+  initializer(problem::GeneralBilinearSensingProblem, δ::Float64)
+
+Generate an initial guess for the solution to `problem` that is `δ`-far from
+the ground truth when distance is measured in the Euclidean norm.
+"""
+function initializer(problem::GeneralBilinearSensingProblem, δ::Float64)
+  wx_stacked = [vec(problem.W); vec(problem.X)]
+  return wx_stacked + δ * normalize(randn(length(wx_stacked)))
 end
 
 """
