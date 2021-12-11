@@ -236,18 +236,18 @@ function build_bundle_qr(
   # QR factorization of Aᵀ.
   bundle[1, :] = gradf(y)
   fvals[1] = f(y) - min_f
-  jvals[1] = gradf(y)'y
+  jvals[1] = gradf(y)' * (y - y₀)
   Q, R = qr(bundle[1:1, :]')
   # "Unwrap" LinearAlgebra.QRCompactWYQ type.
   Q = Q * Matrix(1.0 * LinearAlgebra.I, d, d)
-  y = y₀ - Q[:, 1] .* (R' \ [fvals[1] - jvals[1] + y₀'bundle[1, :]])
+  y = y₀ - Q[:, 1] .* (R' \ [fvals[1] - jvals[1]])
   solns[:, 1] = y[:]
   resid[1] = f(y) - min_f
   @debug "bundle_idx = 1 - error: $(resid[1])"
   for bundle_idx in 2:d
     bundle[bundle_idx, :] = gradf(y)
     fvals[bundle_idx] = f(y) - min_f
-    jvals[bundle_idx] = gradf(y)'y
+    jvals[bundle_idx] = gradf(y)' * (y - y₀)
     # qrinsert!(Q, R, v): QR = Aᵀ and v is the column added.
     # Only assign to R since Q is modified in-place.
     R = qrinsert!(Q, R, bundle[bundle_idx, :])
@@ -264,7 +264,7 @@ function build_bundle_qr(
     y =
       y₀ -
       view(Q, :, 1:bundle_idx) *
-      (R' \ (fvals[1:bundle_idx] - jvals[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
+      (R' \ (fvals[1:bundle_idx] - jvals[1:bundle_idx]))
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * (f(x₀) - min_f))
       @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
