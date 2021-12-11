@@ -39,7 +39,7 @@ function run_experiment(m, d, r, δ, ϵ_decrease, ϵ_distance, show_amortized)
   CSV.write("quadratic_sensing_$(m)_$(d)_$(r)_polyak.csv", df_polyak)
   semilogy(cumul_oracle_calls, loss_history, "bo--")
   semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
-  legend(["BundleNewton", "PolyakSGM"])
+  legend(["SuperPolyak", "PolyakSGM"])
   show()
 end
 
