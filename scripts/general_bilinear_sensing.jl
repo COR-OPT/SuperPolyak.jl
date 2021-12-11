@@ -18,6 +18,7 @@ function run_experiment(m, d, r, δ, ϵ_decrease, ϵ_distance, show_amortized)
     loss_fn,
     grad_fn,
     z_init,
+    ϵ_tol = 1e-14,
     ϵ_decrease = ϵ_decrease,
     ϵ_distance = ϵ_distance,
   )
@@ -29,7 +30,7 @@ function run_experiment(m, d, r, δ, ϵ_decrease, ϵ_distance, show_amortized)
   )
   CSV.write("general_bilinear_sensing_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
   _, loss_history_polyak, oracle_calls_polyak =
-    SuperPolyak.subgradient_method(loss_fn, grad_fn, z_init)
+    SuperPolyak.subgradient_method(loss_fn, grad_fn, z_init, 1e-14)
   df_polyak = DataFrame(
     t = 1:length(loss_history_polyak),
     fvals = loss_history_polyak,
