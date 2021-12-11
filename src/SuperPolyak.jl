@@ -187,9 +187,9 @@ function build_bundle(
     bundle[bundle_idx, :] = gradf(y)
     fvals[bundle_idx] = f(y) - min_f
     jvals[bundle_idx] = gradf(y)'y
-    A = bundle[1:bundle_idx, :]
+    A = view(bundle, 1:bundle_idx, :)
     # Compute new point, add to list of candidates
-    y = y₀ - A \ ((fvals.-jvals)[1:bundle_idx] + A * y₀)
+    y = y₀ - A \ (fvals[1:bundle_idx] - jvals[1:bundle_idx] + A * y₀)
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * (f(x₀) - min_f))
       @debug "Early stopping at idx = $(bundle_idx)"
@@ -264,7 +264,7 @@ function build_bundle_qr(
     y =
       y₀ -
       view(Q, :, 1:bundle_idx) *
-      (R' \ ((fvals.-jvals)[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
+      (R' \ (fvals[1:bundle_idx] - jvals[1:bundle_idx] + view(bundle, 1:bundle_idx, :) * y₀))
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * (f(x₀) - min_f))
       @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
