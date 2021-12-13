@@ -29,7 +29,7 @@
 				 enlargelimits=false, ymin=1e-15, ymax=1.1,
          legend cell align=left, legend pos=north east,
 				 legend style={nodes={scale=1.0, transform shape}},
-         legend entries={{$d=100$}, {$d=250$}, {$d=500$},
+         legend entries={{$d=75$}, {$d=150$}, {$d=300$},
                          {\texttt{SuperPolyak}},
                          {\texttt{PolyakSGM}}}]
   \addlegendimage{mark=*, very thick, color=lblue};
@@ -38,17 +38,17 @@
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./general_bilinear_sensing_600_100_2_bundle_amortized.csv};
+    {./general_bilinear_sensing_900_75_4_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./general_bilinear_sensing_600_100_2_polyak_amortized.csv};
+    {./general_bilinear_sensing_900_75_4_polyak.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./general_bilinear_sensing_1500_250_2_bundle_amortized.csv};
+    {./general_bilinear_sensing_1800_150_4_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./general_bilinear_sensing_1500_250_2_polyak_amortized.csv};
+    {./general_bilinear_sensing_1800_150_4_polyak.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./general_bilinear_sensing_3000_500_2_bundle_amortized.csv};
+    {./general_bilinear_sensing_3600_300_4_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./general_bilinear_sensing_3000_500_2_polyak_amortized.csv};
+    {./general_bilinear_sensing_3600_300_4_polyak.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}

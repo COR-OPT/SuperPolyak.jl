@@ -42,13 +42,15 @@ end
 
 A symmetrized quadratic sensing problem with measurements
 
-  yᵢ = |pᵢ'X|² - |qᵢ'X|²,
+  yᵢ = |pᵢ'X|² - |qᵢ'X|² = (pᵢ - qᵢ)'XX'(pᵢ + qᵢ)
 
 where pᵢ and qᵢ are iid Gaussian vectors.
+
+We let ℓᵢ = pᵢ - qᵢ, rᵢ = pᵢ + qᵢ below.
 """
 struct QuadraticSensingProblem
-  P::Matrix{Float64}
-  Q::Matrix{Float64}
+  L::Matrix{Float64}
+  R::Matrix{Float64}
   X::Matrix{Float64}
   y::Vector{Float64}
 end
@@ -56,12 +58,12 @@ end
 function loss(problem::QuadraticSensingProblem)
   d, k = size(problem.X)
   m = length(problem.y)
-  P = problem.P
-  Q = problem.Q
+  L = problem.L
+  R = problem.R
   y = problem.y
   loss_fn(z) = begin
     Z = reshape(z, d, k)
-    return (1 / m) * norm(y - sum((P * Z).^2, dims=2)[:] + sum((Q * Z).^2, dims=2)[:], 1)
+    return (1 / m) * norm(y - sum((L * Z) .* (R * Z), dims=2)[:], 1)
   end
   return loss_fn
 end
@@ -69,15 +71,15 @@ end
 function subgradient(problem::QuadraticSensingProblem)
   d, k = size(problem.X)
   m = length(problem.y)
-  P = problem.P
-  Q = problem.Q
+  L = problem.L
+  R = problem.R
   y = problem.y
   grad_fn(z) = begin
     Z = reshape(z, d, k)
-    r = sign.(sum((P * Z).^2, dims=2)[:] - sum((Q * Z).^2, dims=2)[:] - y)
-    L = P * Z
-    R = Q * Z
-    return vec((2 / m) * (P' * (r .* L) - Q' * (r .* R)))
+    Lz = L * Z
+    Rz = R * Z
+    r = sign.(sum(Lz .* Rz, dims=2)[:] .- y)
+    return vec((1 / m) * (R' * (r .* Lz) + L' * (r .* Rz)))
   end
   return grad_fn
 end
@@ -89,10 +91,10 @@ end
 
 function quadratic_sensing_problem(m::Int, d::Int, r::Int)
   X = Matrix(qr(randn(d, r)).Q)
-  P = randn(m, d)
-  Q = randn(m, d)
-  y = sum((P * X).^2, dims=2)[:] - sum((Q * X).^2, dims=2)[:]
-  return QuadraticSensingProblem(P, Q, X, y)
+  L = sqrt(2) * randn(m, d)
+  R = sqrt(2) * randn(m, d)
+  y = sum((L * X) .* (R * X), dims=2)[:]
+  return QuadraticSensingProblem(L, R, X, y)
 end
 
 struct BilinearSensingProblem

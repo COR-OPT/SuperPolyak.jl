@@ -243,6 +243,7 @@ function build_bundle_qr(
   y = y₀ - Q[:, 1] .* (R' \ [fvals[1] - jvals[1]])
   solns[:, 1] = y[:]
   resid[1] = f(y) - min_f
+  Δ = f(x₀) - min_f
   @debug "bundle_idx = 1 - error: $(resid[1])"
   for bundle_idx in 2:d
     bundle[bundle_idx, :] = gradf(y)
@@ -258,7 +259,7 @@ function build_bundle_qr(
         solns[:, 1:(bundle_idx - 1)],
         resid[1:(bundle_idx - 1)],
         y₀,
-        η * (f(x₀) - min_f),
+        η * Δ,
       )
     end
     y =
@@ -272,8 +273,12 @@ function build_bundle_qr(
         solns[:, 1:(bundle_idx-1)],
         resid[1:(bundle_idx-1)],
         y₀,
-        η * (f(x₀) - min_f),
+        η * Δ,
       )
+    end
+    # Terminate early if function value decreased significantly.
+    if (Δ < 1) && ((f(y) - min_f) < Δ^(2.0))
+      return y, bundle_idx
     end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y) - min_f
