@@ -26,7 +26,7 @@
 \begin{document}
 \begin{tikzpicture}% table
     \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
-				 enlargelimits=false, ymin=1e-16, ymax=2.0,
+				 enlargelimits=false, width=3.5in, height=3in, xmax=2500,
          legend cell align=left, legend pos=north east,
 				 legend style={nodes={scale=1.0, transform shape}},
          legend entries={{$d=100$}, {$d=250$}, {$d=500$},
@@ -38,17 +38,17 @@
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./bilinear_sensing_400_100_bundle.csv};
+    {./bilinear_sensing_300_100_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./bilinear_sensing_400_100_polyak.csv};
+    {./bilinear_sensing_300_100_polyak.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./bilinear_sensing_1000_250_bundle.csv};
+    {./bilinear_sensing_750_250_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./bilinear_sensing_1000_250_polyak.csv};
+    {./bilinear_sensing_750_250_polyak.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./bilinear_sensing_2000_500_bundle.csv};
+    {./bilinear_sensing_1500_500_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./bilinear_sensing_2000_500_polyak.csv};
+    {./bilinear_sensing_1500_500_polyak.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}
