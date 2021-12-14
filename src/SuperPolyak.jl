@@ -163,7 +163,7 @@ Runs `d` steps and returns an element `yi` such that:
   b) f(yᵢ) has the minimal value among all `y` such that `|y - x₀| < η * (f(x₀) - min_f)`.
 
 The algorithm terminates if `yᵢ` satisfies `|yᵢ - x₀| > η * (f(x₀) - min_f)` or
-`f(yᵢ) - min_f < (f(x₀) - min_f)^(η_est)`.
+`f(yᵢ) - min_f < (f(x₀) - min_f)^(1+η_est)`.
 
 If no iterate satisfies the above, the function outputs `nothing`.
 """
@@ -204,7 +204,7 @@ function build_bundle(
       )
     end
     # Terminate early if function value decreased significantly.
-    if (Δ < 1) && ((f(y) - min_f) < Δ^(η_est))
+    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
       return y, bundle_idx
     end
     solns[:, bundle_idx] = y[:]
@@ -285,7 +285,7 @@ function build_bundle_qr(
       )
     end
     # Terminate early if function value decreased significantly.
-    if (Δ < 1) && ((f(y) - min_f) < Δ^(η_est))
+    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
       return y, bundle_idx
     end
     solns[:, bundle_idx] = y[:]
@@ -315,8 +315,8 @@ function bundle_newton(
   min_f::Float64 = 0.0,
   fallback_alg::Function = polyak_sgm,
   use_qr_bundle::Bool = true,
-  η_est::Float64 = 2.0,
-  η_lb::Float64 = 1.1,
+  η_est::Float64 = 1.0,
+  η_lb::Float64 = 0.1,
   kwargs...,
 )
   if (ϵ_decrease ≥ 1) || (ϵ_decrease < 0)
@@ -336,11 +336,10 @@ function bundle_newton(
       (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f, η_est) :
       build_bundle(f, gradf, x, η, min_f, η_est)
     # Adjust η_est if the bundle step did not satisfy the descent condition.
-    if !isnothing(bundle_step) && ((f(bundle_step) - min_f) > (f(x) - min_f)^(η_est)) && ((f(x) - min_f) < 1)
-      @debug "Bundle loss: $(f(bundle_step) - min_f)"
-      @debug "Previous loss: $(f(x) - min_f)"
-      @debug "Previous eta: $(η_est)"
-      η_est = max(1 + ((η_est - 1) * 0.9^(idx)), η_lb)
+    if !isnothing(bundle_step) &&
+      ((f(bundle_step) - min_f) > (f(x) - min_f)^(1+η_est)) &&
+      ((f(x) - min_f) < 0.5)
+      η_est = max(η_est * 0.9^(idx), η_lb)
       @debug "Adjusting η_est = $(η_est)"
     end
     if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
