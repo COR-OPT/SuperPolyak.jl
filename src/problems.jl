@@ -63,7 +63,7 @@ function loss(problem::QuadraticSensingProblem)
   y = problem.y
   loss_fn(z) = begin
     Z = reshape(z, d, k)
-    return (1 / m) * norm(y - sum((L * Z) .* (R * Z), dims=2)[:], 1)
+    return (1 / m) * norm(y - sum((L * Z) .* (R * Z), dims = 2)[:], 1)
   end
   return loss_fn
 end
@@ -78,7 +78,7 @@ function subgradient(problem::QuadraticSensingProblem)
     Z = reshape(z, d, k)
     Lz = L * Z
     Rz = R * Z
-    r = sign.(sum(Lz .* Rz, dims=2)[:] .- y)
+    r = sign.(sum(Lz .* Rz, dims = 2)[:] .- y)
     return vec((1 / m) * (R' * (r .* Lz) + L' * (r .* Rz)))
   end
   return grad_fn
@@ -93,7 +93,7 @@ function quadratic_sensing_problem(m::Int, d::Int, r::Int)
   X = Matrix(qr(randn(d, r)).Q)
   L = sqrt(2) * randn(m, d)
   R = sqrt(2) * randn(m, d)
-  y = sum((L * X) .* (R * X), dims=2)[:]
+  y = sum((L * X) .* (R * X), dims = 2)[:]
   return QuadraticSensingProblem(L, R, X, y)
 end
 
@@ -187,9 +187,9 @@ function loss(problem::GeneralBilinearSensingProblem)
   loss_fn(z::Vector{Float64}) = begin
     # Layout assumption: z is a "flattened" version of [W, X] ∈ Rᵈˣ⁽²ʳ⁾.
     W = reshape(z[1:(d*r)], d, r)
-    X = reshape(z[(d*r + 1):end], d, r)
+    X = reshape(z[(d*r+1):end], d, r)
     # Compute row-wise product.
-    return (1 / m) * norm(y .- sum((L * W) .* (R * X), dims=2)[:], 1)
+    return (1 / m) * norm(y .- sum((L * W) .* (R * X), dims = 2)[:], 1)
   end
   return loss_fn
 end
@@ -211,10 +211,10 @@ function subgradient(problem::GeneralBilinearSensingProblem)
   grad_fn(z::Vector{Float64}) = begin
     # Layout assumption: z is a "flattened" version of [W, X] ∈ Rᵈˣ⁽²ʳ⁾.
     W = reshape(z[1:(d*r)], d, r)
-    X = reshape(z[(d*r + 1):end], d, r)
+    X = reshape(z[(d*r+1):end], d, r)
     Lw = L * W
     Rx = R * X
-    rsign = sign.(sum(Lw .* Rx, dims=2)[:] .- y)
+    rsign = sign.(sum(Lw .* Rx, dims = 2)[:] .- y)
     grad_W = (1 / m) * (rsign .* L)' * Rx
     grad_X = (1 / m) * (rsign .* R)' * Lw
     # Flatten the matric [grad_W, grad_X] ∈ Rᵈˣ⁽²ʳ⁾ into a vector of size
@@ -236,7 +236,7 @@ function general_bilinear_sensing_problem(m::Int, d::Int, r::Int)
   # Solutions on the orthogonal manifold O(d, r).
   W = Matrix(qr(randn(d, r)).Q)
   X = Matrix(qr(randn(d, r)).Q)
-  y = sum((L * W) .* (R * X), dims=2)[:]
+  y = sum((L * W) .* (R * X), dims = 2)[:]
   return GeneralBilinearSensingProblem(L, R, W, X, y)
 end
 
@@ -317,7 +317,7 @@ struct CompressedSensingProblem
 end
 
 function proj_sparse(x::Vector{Float64}, k::Int)
-  x[sortperm(abs.(x), rev=true)[(k+1):end]] .= 0
+  x[sortperm(abs.(x), rev = true)[(k+1):end]] .= 0
   return x
 end
 

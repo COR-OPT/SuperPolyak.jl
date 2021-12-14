@@ -3,10 +3,10 @@ function soft_threshold(x::Vector{Float64}, τ::Float64)
 end
 
 struct LassoProblem
-  A :: Matrix{Float64}
-  x :: Vector{Float64}
-  y :: Vector{Float64}
-  λ :: Float64
+  A::Matrix{Float64}
+  x::Vector{Float64}
+  y::Vector{Float64}
+  λ::Float64
 end
 
 """
@@ -32,7 +32,10 @@ function loss(problem::LassoProblem, τ::Float64 = 0.9 / (opnorm(problem.A)^2))
   return z -> norm(z - proximal_gradient(problem.A, z, problem.y, problem.λ, τ))
 end
 
-function subgradient(problem::LassoProblem, τ::Float64 = 0.9 / (opnorm(problem.A)^2))
+function subgradient(
+  problem::LassoProblem,
+  τ::Float64 = 0.9 / (opnorm(problem.A)^2),
+)
   A = problem.A
   y = problem.y
   λ = problem.λ

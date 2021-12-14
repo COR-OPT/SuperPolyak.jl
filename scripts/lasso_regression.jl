@@ -10,7 +10,17 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, ϵ_tol, ϵ_decrease, ϵ_distance, η_est, η_lb, show_amortized)
+function run_experiment(
+  m,
+  d,
+  k,
+  ϵ_tol,
+  ϵ_decrease,
+  ϵ_distance,
+  η_est,
+  η_lb,
+  show_amortized,
+)
   problem = SuperPolyak.lasso_problem(m, d, k, 0.1)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)

@@ -37,7 +37,7 @@ function polyak_sgm(
   gradf::Function,
   x₀::Vector{Float64},
   ϵ::Float64 = (f(x_0) / 2),
-  min_f::Float64 = 0.0;
+  min_f::Float64 = 0.0;,
 )
   x = x₀[:]
   oracle_calls = 0
@@ -146,7 +146,7 @@ lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ` (or `nothi
 if no such candidate exists) as well as the number of candidates considered.
 """
 function pick_best_candidate(candidates, residuals, y₀, ϵ)
-  valid_inds = sum((candidates .- y₀) .^2, dims = 1)[:] .< ϵ^2
+  valid_inds = sum((candidates .- y₀) .^ 2, dims = 1)[:] .< ϵ^2
   (sum(valid_inds) == 0) && return nothing, size(candidates, 2)
   best_idx = argmin_parentindex(residuals, valid_inds)
   @debug "best_idx = $(best_idx) -- R = $(residuals[best_idx])"
@@ -264,8 +264,8 @@ function build_bundle_qr(
     if (rank(R) < bundle_idx)
       @debug "Stopping at idx = $(bundle_idx) - reason: singular R"
       return pick_best_candidate(
-        solns[:, 1:(bundle_idx - 1)],
-        resid[1:(bundle_idx - 1)],
+        solns[:, 1:(bundle_idx-1)],
+        resid[1:(bundle_idx-1)],
         y₀,
         η * Δ,
       )
@@ -323,8 +323,12 @@ function bundle_newton(
     throw(BoundsError(ϵ_decrease, "ϵ_decrease must be between 0 and 1"))
   end
   if (ϵ_decrease * ϵ_distance > 1)
-    throw(BoundsError(ϵ_decrease * ϵ_distance,
-                      "ϵ_decrease * ϵ_distance must be < 1"))
+    throw(
+      BoundsError(
+        ϵ_decrease * ϵ_distance,
+        "ϵ_decrease * ϵ_distance must be < 1",
+      ),
+    )
   end
   x = x₀[:]
   fvals = [f(x₀) - min_f]
@@ -337,12 +341,13 @@ function bundle_newton(
       build_bundle(f, gradf, x, η, min_f, η_est)
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
-      ((f(bundle_step) - min_f) > (f(x) - min_f)^(1+η_est)) &&
-      ((f(x) - min_f) < 0.5)
+       ((f(bundle_step) - min_f) > (f(x) - min_f)^(1 + η_est)) &&
+       ((f(x) - min_f) < 0.5)
       η_est = max(η_est * 0.9, η_lb)
       @debug "Adjusting η_est = $(η_est)"
     end
-    if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
+    if isnothing(bundle_step) ||
+       ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
       x, fallback_calls = fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
       # Include the number of oracle calls made by the failed bundle step.
       push!(oracle_calls, fallback_calls + bundle_calls)

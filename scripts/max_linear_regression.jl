@@ -9,7 +9,17 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, η_est, η_lb, show_amortized)
+function run_experiment(
+  m,
+  d,
+  k,
+  δ,
+  ϵ_decrease,
+  ϵ_distance,
+  η_est,
+  η_lb,
+  show_amortized,
+)
   problem = SuperPolyak.max_affine_regression_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
