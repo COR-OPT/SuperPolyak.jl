@@ -339,7 +339,7 @@ function bundle_newton(
     if !isnothing(bundle_step) &&
       ((f(bundle_step) - min_f) > (f(x) - min_f)^(1+η_est)) &&
       ((f(x) - min_f) < 0.5)
-      η_est = max(η_est * 0.9^(idx), η_lb)
+      η_est = max(η_est * 0.9, η_lb)
       @debug "Adjusting η_est = $(η_est)"
     end
     if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
