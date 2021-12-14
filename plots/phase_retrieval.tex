@@ -38,17 +38,17 @@
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_200_100_bundle.csv};
+    {phase_retrieval_300_100_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_200_100_polyak.csv};
+    {phase_retrieval_300_100_polyak.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_500_250_bundle.csv};
+    {phase_retrieval_750_250_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_500_250_polyak.csv};
+    {phase_retrieval_750_250_polyak.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_1000_500_bundle.csv};
+    {phase_retrieval_1500_500_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_1000_500_polyak.csv};
+    {phase_retrieval_1500_500_polyak.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}
