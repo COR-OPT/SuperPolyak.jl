@@ -10,7 +10,7 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, ϵ_tol, show_amortized)
+function run_experiment(m, d, k, ϵ_tol, ϵ_decrease, ϵ_distance, η_est, show_amortized)
   problem = SuperPolyak.lasso_problem(m, d, k, 0.1)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
@@ -45,6 +45,9 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
     grad_fn,
     x_init[:],
     ϵ_tol = ϵ_tol,
+    ϵ_distance = ϵ_distance,
+    ϵ_decrease = ϵ_decrease,
+    η_est = η_est,
     fallback_alg = proximal_gradient_method,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, show_amortized)
@@ -92,6 +95,21 @@ settings = ArgParseSettings()
   arg_type = Float64
   help = "The desired tolerance for the final solution."
   default = 1e-12
+  "--eps-decrease"
+  arg_type = Float64
+  help = "The multiplicative decrease factor for the loss."
+  default = 0.5
+  "--eps-distance"
+  arg_type = Float64
+  help =
+    "A multiplicative factor η for the distance between the initial " *
+    "point `y₀` and the output `y` of the bundle Newton method. It " *
+    "requires that |y - y₀| < η * f(y₀)."
+  default = 1.5
+  "--eta-est"
+  arg_type = Float64
+  help = "The factor of superlinear convergence for early stopping."
+  default = 1.5
   "--seed"
   arg_type = Int
   help = "The seed for the random number generator."
@@ -108,5 +126,8 @@ run_experiment(
   args["d"],
   args["k"],
   args["eps-tol"],
+  args["eps-decrease"],
+  args["eps-distance"],
+  args["eta-est"],
   args["show-amortized"],
 )

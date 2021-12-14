@@ -154,7 +154,7 @@ function pick_best_candidate(candidates, residuals, y₀, ϵ)
 end
 
 """
-  build_bundle(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64)
+  build_bundle(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
 Build a bundle for taking a Newton step in the problem of finding zeros of `f`.
 Runs `d` steps and returns an element `yi` such that:
@@ -162,7 +162,8 @@ Runs `d` steps and returns an element `yi` such that:
   a) `|yᵢ - x₀| < η * (f(x₀) - min_f)`;
   b) f(yᵢ) has the minimal value among all `y` such that `|y - x₀| < η * (f(x₀) - min_f)`.
 
-The algorithm terminates if `yᵢ` satisfies `|yᵢ - x₀| > η * (f(x₀) - min_f)`.
+The algorithm terminates if `yᵢ` satisfies `|yᵢ - x₀| > η * (f(x₀) - min_f)` or
+`f(yᵢ) - min_f < (f(x₀) - min_f)^(η_est)`.
 
 If no iterate satisfies the above, the function outputs `nothing`.
 """
@@ -172,6 +173,7 @@ function build_bundle(
   x₀::Vector{Float64},
   η::Float64,
   min_f::Float64,
+  η_est::Float64,
 )
   d = length(x₀)
   # Allocate bundle, function + jacobian values.
@@ -183,33 +185,38 @@ function build_bundle(
   solns = zeros(d, d)
   y₀ = x₀[:]
   y = x₀[:]
+  Δ = f(x₀) - min_f
   for bundle_idx in 1:d
     bundle[bundle_idx, :] = gradf(y)
     fvals[bundle_idx] = f(y) - min_f
-    jvals[bundle_idx] = gradf(y)'y
+    jvals[bundle_idx] = gradf(y)' * (y - y₀)
     A = view(bundle, 1:bundle_idx, :)
     # Compute new point, add to list of candidates
-    y = y₀ - A \ (fvals[1:bundle_idx] - jvals[1:bundle_idx] + A * y₀)
+    y = y₀ - A \ (fvals[1:bundle_idx] - jvals[1:bundle_idx])
     # Terminate early if new point escaped ball around y₀.
-    if (norm(y - y₀) > η * (f(x₀) - min_f))
+    if (norm(y - y₀) > η * Δ)
       @debug "Early stopping at idx = $(bundle_idx)"
       return pick_best_candidate(
         solns[:, 1:(bundle_idx-1)],
         resid[1:(bundle_idx-1)],
         y₀,
-        η * (f(x₀) - min_f),
+        η * Δ,
       )
+    end
+    # Terminate early if function value decreased significantly.
+    if (Δ < 1) && ((f(y) - min_f) < Δ^(η_est))
+      return y, bundle_idx
     end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y) - min_f
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
-  return pick_best_candidate(solns, resid, y₀, η * (f(x₀) - min_f))
+  return pick_best_candidate(solns, resid, y₀, η * Δ)
 end
 
 
 """
-  build_bundle_qr(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64)
+  build_bundle_qr(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
 An efficient version of the BuildBundle algorithm using an incrementally
 updated QR factorization. Total runtime is O(d³) instead of O(d⁴).
@@ -220,6 +227,7 @@ function build_bundle_qr(
   x₀::Vector{Float64},
   η::Float64,
   min_f::Float64,
+  η_est::Float64,
 )
   d = length(x₀)
   bundle = zeros(d, d)
@@ -267,7 +275,7 @@ function build_bundle_qr(
       view(Q, :, 1:bundle_idx) *
       (R' \ (fvals[1:bundle_idx] - jvals[1:bundle_idx]))
     # Terminate early if new point escaped ball around y₀.
-    if (norm(y - y₀) > η * (f(x₀) - min_f))
+    if (norm(y - y₀) > η * Δ)
       @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
       return pick_best_candidate(
         solns[:, 1:(bundle_idx-1)],
@@ -277,14 +285,14 @@ function build_bundle_qr(
       )
     end
     # Terminate early if function value decreased significantly.
-    if (Δ < 1) && ((f(y) - min_f) < Δ^(2.0))
+    if (Δ < 1) && ((f(y) - min_f) < Δ^(η_est))
       return y, bundle_idx
     end
     solns[:, bundle_idx] = y[:]
     resid[bundle_idx] = f(y) - min_f
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
-  return pick_best_candidate(solns, resid, y₀, η * (f(x₀) - min_f))
+  return pick_best_candidate(solns, resid, y₀, η * Δ)
 end
 
 
@@ -292,7 +300,7 @@ end
   bundle_newton(f::Function, gradf::Function, x₀::Vector{Float64};
                 ϵ_tol::Float64 = 1e-15, ϵ_decrease::Float64 = (1 / 2),
                 ϵ_distance::Float64 = (3 / 2), min_f::Float64 = 0.0,
-                use_qr_bundle::Bool = true, kwargs...)
+                use_qr_bundle::Bool = true, η_est::Float64 = 2.0, kwargs...)
 
 Run the bundle Newton method to find a zero of `f` with Jacobian `gradf`,
 starting from an initial point `x₀`.
@@ -307,6 +315,8 @@ function bundle_newton(
   min_f::Float64 = 0.0,
   fallback_alg::Function = polyak_sgm,
   use_qr_bundle::Bool = true,
+  η_est::Float64 = 2.0,
+  η_lb::Float64 = 1.1,
   kwargs...,
 )
   if (ϵ_decrease ≥ 1) || (ϵ_decrease < 0)
@@ -323,8 +333,16 @@ function bundle_newton(
   while true
     η = ϵ_distance^(idx)
     bundle_step, bundle_calls =
-      (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f) :
-      build_bundle(f, gradf, x, η, min_f)
+      (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f, η_est) :
+      build_bundle(f, gradf, x, η, min_f, η_est)
+    # Adjust η_est if the bundle step did not satisfy the descent condition.
+    if !isnothing(bundle_step) && ((f(bundle_step) - min_f) > (f(x) - min_f)^(η_est)) && ((f(x) - min_f) < 1)
+      @debug "Bundle loss: $(f(bundle_step) - min_f)"
+      @debug "Previous loss: $(f(x) - min_f)"
+      @debug "Previous eta: $(η_est)"
+      η_est = max(1 + ((η_est - 1) * 0.9^(idx)), η_lb)
+      @debug "Adjusting η_est = $(η_est)"
+    end
     if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
       x, fallback_calls = fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
       # Include the number of oracle calls made by the failed bundle step.
