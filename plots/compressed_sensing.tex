@@ -26,10 +26,10 @@
 
 \begin{document}
 \begin{tikzpicture}% table
-    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
-				 enlargelimits=false, ymin=1e-16, ymax=1.0,
+    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log, width=3.5in, height=3in,
+				 enlargelimits=false,
          legend cell align=left, legend pos=north east,
-				 legend style={nodes={scale=0.75, transform shape}},
+				 legend style={nodes={scale=0.9, transform shape}},
          legend entries={{$(d,s)=(250,5)$}, {$(d,s)=(500,10)$}, {$(d,s)=(1000,20)$},
                          {\texttt{SuperPolyak}},
                          {Alternating Projections}}]

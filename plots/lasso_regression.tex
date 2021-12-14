@@ -27,10 +27,10 @@
 \begin{document}
 \begin{tikzpicture}% table
     \begin{axis}[xlabel={Cumulative oracle calls}, ylabel=$f(x_k)$, ymode=log,
-				 enlargelimits=false, ymax=1.0, xmax=4000,
+				 enlargelimits=false, width=3.5in, height=3in,
          legend cell align=left, legend pos=north east,
-				 legend style={nodes={scale=0.8, transform shape}},
-         legend entries={{$(d,k)=(100,1)$}, {$(d,k)=(500, 5)$}, {$(d,k)=(1000,10)$},
+				 legend style={nodes={scale=0.9, transform shape}},
+         legend entries={{$(d,s)=(250,5)$}, {$(d,s)=(500, 10)$}, {$(d,s)=(1000,20)$},
                          {\texttt{SuperPolyak}},
                          {Proximal Gradient}}]
   \addlegendimage{mark=*, very thick, color=lblue};
@@ -39,17 +39,17 @@
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_10_100_1_bundle.csv};
+    {./lasso_50_250_5_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_10_100_1_vanilla.csv};
+    {./lasso_50_250_5_vanilla.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_50_500_5_bundle.csv};
+    {./lasso_100_500_10_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_50_500_5_vanilla.csv};
+    {./lasso_100_500_10_vanilla.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./lasso_100_1000_10_bundle.csv};
+    {./lasso_200_1000_20_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./lasso_100_1000_10_vanilla.csv};
+    {./lasso_200_1000_20_vanilla.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}
