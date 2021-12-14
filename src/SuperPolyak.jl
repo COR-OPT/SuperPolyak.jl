@@ -37,7 +37,7 @@ function polyak_sgm(
   gradf::Function,
   x₀::Vector{Float64},
   ϵ::Float64 = (f(x_0) / 2),
-  min_f::Float64 = 0.0;,
+  min_f::Float64 = 0.0,
 )
   x = x₀[:]
   oracle_calls = 0
