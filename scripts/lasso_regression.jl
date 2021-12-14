@@ -10,7 +10,17 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, ϵ_tol, ϵ_decrease, ϵ_distance, η_est, show_amortized)
+function run_experiment(
+  m,
+  d,
+  k,
+  ϵ_tol,
+  ϵ_decrease,
+  ϵ_distance,
+  η_est,
+  η_lb,
+  show_amortized,
+)
   problem = SuperPolyak.lasso_problem(m, d, k, 0.1)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
@@ -48,6 +58,7 @@ function run_experiment(m, d, k, ϵ_tol, ϵ_decrease, ϵ_distance, η_est, show_
     ϵ_distance = ϵ_distance,
     ϵ_decrease = ϵ_decrease,
     η_est = η_est,
+    η_lb = η_lb,
     fallback_alg = proximal_gradient_method,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, show_amortized)
@@ -109,7 +120,11 @@ settings = ArgParseSettings()
   "--eta-est"
   arg_type = Float64
   help = "The factor of superlinear convergence for early stopping."
-  default = 1.5
+  default = 1.0
+  "--eta-lb"
+  arg_type = Float64
+  help = "A lower bound for the (b)-regularity constant."
+  default = 0.25
   "--seed"
   arg_type = Int
   help = "The seed for the random number generator."
@@ -129,5 +144,6 @@ run_experiment(
   args["eps-decrease"],
   args["eps-distance"],
   args["eta-est"],
+  args["eta-lb"],
   args["show-amortized"],
 )

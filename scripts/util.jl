@@ -14,7 +14,8 @@ total number is divided equally among each step.
 function get_cumul_oracle_calls(oracle_calls::Vector{Int}, show_amortized::Bool)
   T = length(oracle_calls)
   cumul_oracle_calls =
-    show_amortized ? ((0:(T-1)) .* (sum(oracle_calls) ÷ (T-1))) : cumsum(oracle_calls)
+    show_amortized ? ((0:(T-1)) .* (sum(oracle_calls) ÷ (T - 1))) :
+    cumsum(oracle_calls)
   return cumul_oracle_calls
 end
 
@@ -23,8 +24,8 @@ end
 
 Read an LP instance from an .MPS file.
 """
-function read_mps_instance(filename::String, mpsformat=:fixed)
-  problem = readqps(filename, mpsformat=mpsformat)
+function read_mps_instance(filename::String, mpsformat = :fixed)
+  problem = readqps(filename, mpsformat = mpsformat)
   m, n = problem.ncon, problem.nvar
   A = sparse(problem.arows, problem.acols, problem.avals, m, n)
   equal_lu_ind = @. abs(problem.ucon - problem.lcon) ≤ 1e-15
@@ -35,16 +36,22 @@ function read_mps_instance(filename::String, mpsformat=:fixed)
   nslack_l = sum(finite_l_ind)
   num_eq = sum(equal_lu_ind)
   # Constraint matrix of the form Ax = b.
-  A = [A[finite_u_ind, :];
-       A[finite_l_ind, :];
-       A[equal_lu_ind, :]]
+  A = [
+    A[finite_u_ind, :]
+    A[finite_l_ind, :]
+    A[equal_lu_ind, :]
+  ]
   # [A_{≤} I 0; A_{≥} -I 0; A_{=} 0 0]
-  A = [A [Diagonal([ones(nslack_u); -ones(nslack_l)]);
-          zeros(num_eq, nslack_l + nslack_u)]]
+  A = [A [
+    Diagonal([ones(nslack_u); -ones(nslack_l)])
+    zeros(num_eq, nslack_l + nslack_u)
+  ]]
   # Right-hand side: [finite(u); finite(l); u_{=}]
-  b = [problem.ucon[finite_u_ind];
-       problem.lcon[finite_l_ind];
-       problem.ucon[equal_lu_ind]]
+  b = [
+    problem.ucon[finite_u_ind]
+    problem.lcon[finite_l_ind]
+    problem.ucon[equal_lu_ind]
+  ]
   # All slacks are nonnegative.
   l_var = [problem.lvar; zeros(nslack_l + nslack_u)]
   u_var = [problem.uvar; fill(Inf, nslack_l + nslack_u)]

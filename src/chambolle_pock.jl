@@ -115,12 +115,10 @@ function subgradient(
     q =
       (seminorm(problem, r, τ) ≤ 1e-15) ? zeros(length(z)) :
       (M * r / seminorm(problem, r, τ))
-    D = Diagonal(
-      [
-        member_fn(x + τ * (A' * (y - 2τ * (A * x - b)) - c))
-        ones(m)
-      ],
-    )
+    D = Diagonal([
+      member_fn(x + τ * (A' * (y - 2τ * (A * x - b)) - c))
+      ones(m)
+    ])
     return q - [LinearAlgebra.I-2*τ^2*A'A -τ*A'; τ*A LinearAlgebra.I] * (D * q)
   end
   return G

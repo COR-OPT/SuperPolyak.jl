@@ -9,7 +9,17 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
+function run_experiment(
+  m,
+  d,
+  k,
+  δ,
+  ϵ_decrease,
+  ϵ_distance,
+  η_est,
+  η_lb,
+  show_amortized,
+)
   problem = SuperPolyak.max_affine_regression_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
@@ -20,6 +30,8 @@ function run_experiment(m, d, k, δ, ϵ_decrease, ϵ_distance, show_amortized)
     βs_init[:],  # Vectorize for compatibility with bundle_newton(...)
     ϵ_decrease = ϵ_decrease,
     ϵ_distance = ϵ_distance,
+    η_est = η_est,
+    η_lb = η_lb,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, show_amortized)
   df_bundle = DataFrame(
@@ -71,6 +83,14 @@ settings = ArgParseSettings()
     "point `y₀` and the output `y` of the bundle Newton method. It " *
     "requires that |y - y₀| < η * f(y₀)."
   default = 1.5
+  "--eta-est"
+  arg_type = Float64
+  help = "An estimate of the (b)-regularity constant."
+  default = 1.0
+  "--eta-lb"
+  arg_type = Float64
+  help = "A lower bound for the (b)-regularity constant."
+  default = 0.25
   "--seed"
   arg_type = Int
   help = "The seed for the random number generator."
@@ -89,5 +109,7 @@ run_experiment(
   args["initial-distance"],
   args["eps-decrease"],
   args["eps-distance"],
+  args["eta-est"],
+  args["eta-lb"],
   args["show-amortized"],
 )

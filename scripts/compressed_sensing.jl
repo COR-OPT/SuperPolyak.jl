@@ -9,7 +9,7 @@ using SuperPolyak
 
 include("util.jl")
 
-function run_experiment(m, d, k, ϵ_tol, show_amortized)
+function run_experiment(m, d, k, ϵ_tol, η_est, η_lb, show_amortized)
   problem = SuperPolyak.compressed_sensing_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
@@ -40,6 +40,8 @@ function run_experiment(m, d, k, ϵ_tol, show_amortized)
     grad_fn,
     x_init[:],
     ϵ_tol = ϵ_tol,
+    η_est = η_est,
+    η_lb = η_lb,
     fallback_alg = alternating_projections_method,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, show_amortized)
@@ -86,14 +88,18 @@ settings = ArgParseSettings()
   arg_type = Int
   help = "The sparsity of the unknown solution."
   default = 5
-  "--initial-distance"
-  arg_type = Float64
-  help = "The normalized initial distance from the solution set."
-  default = 0.5
   "--eps-tol"
   arg_type = Float64
   help = "The desired tolerance for the final solution."
   default = 1e-15
+  "--eta-est"
+  arg_type = Float64
+  help = "An estimate of the (b)-regularity constant."
+  default = 1.0
+  "--eta-lb"
+  arg_type = Float64
+  help = "A lower bound for the (b)-regularity constant."
+  default = 0.5
   "--seed"
   arg_type = Int
   help = "The seed for the random number generator."
@@ -110,5 +116,7 @@ run_experiment(
   args["d"],
   args["k"],
   args["eps-tol"],
+  args["eta-est"],
+  args["eta-lb"],
   args["show-amortized"],
 )
