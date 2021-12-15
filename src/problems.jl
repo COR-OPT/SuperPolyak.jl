@@ -15,10 +15,11 @@ function loss(problem::PhaseRetrievalProblem)
 end
 
 function subgradient(problem::PhaseRetrievalProblem)
-  m = length(problem.y)
-  A = problem.A
-  y = problem.y
-  return z -> (2 / m) * A' * (sign.((A * z) .^ 2 - y) .* (A * z))
+  m, d = size(problem.A)
+  compiled_loss_tape = compile(
+    GradientTape(loss(problem), rand(d)),
+  )
+  return z -> gradient!(compiled_loss_tape, z)
 end
 
 """
@@ -69,19 +70,11 @@ function loss(problem::QuadraticSensingProblem)
 end
 
 function subgradient(problem::QuadraticSensingProblem)
-  d, k = size(problem.X)
-  m = length(problem.y)
-  L = problem.L
-  R = problem.R
-  y = problem.y
-  grad_fn(z) = begin
-    Z = reshape(z, d, k)
-    Lz = L * Z
-    Rz = R * Z
-    r = sign.(sum(Lz .* Rz, dims = 2)[:] .- y)
-    return vec((1 / m) * (R' * (r .* Lz) + L' * (r .* Rz)))
-  end
-  return grad_fn
+  d, r = size(problem.X)
+  compiled_loss_tape = compile(
+    GradientTape(loss(problem), rand(d * r)),
+  )
+  return z -> gradient!(compiled_loss_tape, z)
 end
 
 function initializer(problem::QuadraticSensingProblem, δ::Float64)
@@ -114,18 +107,9 @@ function loss(problem::BilinearSensingProblem)
 end
 
 function subgradient(problem::BilinearSensingProblem)
-  L, R = problem.L, problem.R
-  y = problem.y
-  m = length(y)
   d = length(problem.w)
-  g(z) = begin
-    w = z[1:d]
-    x = z[(d+1):end]
-    r = (L * w) .* (R * x) .- y
-    s = sign.(r)
-    return (1 / m) .* vcat(L' * (s .* (R * x)), R' * (s .* (L * w)))
-  end
-  return g
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d)))
+  return z -> gradient!(compiled_loss_tape, z)
 end
 
 """
@@ -184,14 +168,13 @@ function loss(problem::GeneralBilinearSensingProblem)
   y = problem.y
   m = length(y)
   d, r = size(problem.W)
-  loss_fn(z::Vector{Float64}) = begin
+  return z -> begin
     # Layout assumption: z is a "flattened" version of [W, X] ∈ Rᵈˣ⁽²ʳ⁾.
     W = reshape(z[1:(d*r)], d, r)
     X = reshape(z[(d*r+1):end], d, r)
     # Compute row-wise product.
     return (1 / m) * norm(y .- sum((L * W) .* (R * X), dims = 2)[:], 1)
   end
-  return loss_fn
 end
 
 """
@@ -203,25 +186,11 @@ vector containing the "flattened" version of the matrix `[W, X]`, where `W` and
 `X` are `d × r` matrices.
 """
 function subgradient(problem::GeneralBilinearSensingProblem)
-  L = problem.L
-  R = problem.R
-  y = problem.y
-  m = length(y)
   d, r = size(problem.W)
-  grad_fn(z::Vector{Float64}) = begin
-    # Layout assumption: z is a "flattened" version of [W, X] ∈ Rᵈˣ⁽²ʳ⁾.
-    W = reshape(z[1:(d*r)], d, r)
-    X = reshape(z[(d*r+1):end], d, r)
-    Lw = L * W
-    Rx = R * X
-    rsign = sign.(sum(Lw .* Rx, dims = 2)[:] .- y)
-    grad_W = (1 / m) * (rsign .* L)' * Rx
-    grad_X = (1 / m) * (rsign .* R)' * Lw
-    # Flatten the matric [grad_W, grad_X] ∈ Rᵈˣ⁽²ʳ⁾ into a vector of size
-    # 2 × d × r, to match the original layout.
-    return [vec(grad_W); vec(grad_X)]
-  end
-  return grad_fn
+  compiled_loss_tape = compile(
+    GradientTape(loss(problem), rand(2 * d * r)),
+  )
+  return z -> gradient!(compiled_loss_tape, z)
 end
 
 """
@@ -280,16 +249,11 @@ function loss(problem::MaxAffineRegressionProblem)
 end
 
 function subgradient(problem::MaxAffineRegressionProblem)
-  A = problem.A
-  y = problem.y
   d, k = size(problem.βs)
-  grad_fn(z) = begin
-    Z = reshape(z, d, k)
-    signs = sign.(maximum(A * Z, dims = 2)[:] .- y)
-    inds = Int.(A * Z .== maximum(A * Z, dims = 2)[:])
-    # Without vectorizing, result would be a `d × p` matrix.
-    return ((1/length(y))*A'*(signs.*inds))[:]
-  end
+  compiled_loss_tape = compile(
+    GradientTape(loss(problem), rand(d * k)),
+  )
+  return z -> gradient!(compiled_loss_tape, z)
 end
 
 """

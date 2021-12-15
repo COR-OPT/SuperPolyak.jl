@@ -1,6 +1,7 @@
 module SuperPolyak
 
 import LinearAlgebra
+import ReverseDiff: GradientTape, gradient!, compile
 import SparseArrays
 import StatsBase
 

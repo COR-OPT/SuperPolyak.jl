@@ -10,43 +10,40 @@ struct LassoProblem
 end
 
 """
-  proximal_gradient(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64}, λ::Float64, τ::Float64)
+  proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
 
-Compute the proximal gradient operator for the LASSO problem
+Compute the proximal operator for the Lasso problem
 
-  min_x |Ax - b|^2 + λ * |x|_1
+  min_x |Ax - b|^2 + λ |x|₁,
 
-with step `τ`.
+with step size `τ`.
 """
-function proximal_gradient(
-  A::Matrix{Float64},
-  x::Vector{Float64},
-  y::Vector{Float64},
-  λ::Float64,
-  τ::Float64,
-)
-  return soft_threshold(x - τ * A' * (A * x - y), λ * τ)
+function proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+  return soft_threshold(
+    x - τ * problem.A' * (problem.A * x - problem.y),
+    problem.λ * τ,
+  )
 end
 
 function loss(problem::LassoProblem, τ::Float64 = 0.9 / (opnorm(problem.A)^2))
-  return z -> norm(z - proximal_gradient(problem.A, z, problem.y, problem.λ, τ))
+  A = problem.A
+  y = problem.y
+  λ = problem.λ
+  loss_fn(z) = begin
+    grad_step = z - τ * A' * (A * z - y)
+    return norm(z - sign.(grad_step) .* max.(abs.(grad_step) .- λ * τ, 0.0))
+  end
+  return loss_fn
 end
 
 function subgradient(
   problem::LassoProblem,
   τ::Float64 = 0.9 / (opnorm(problem.A)^2),
 )
-  A = problem.A
-  y = problem.y
-  λ = problem.λ
-  g(z) = begin
-    r = z - proximal_gradient(A, z, y, λ, τ)
-    q = (norm(r) ≤ 1e-14) ? zeros(length(z)) : normalize(r)
-    # Nonzero indices in diagonal
-    D = Diagonal(abs.(z - τ * A' * (A * z - y)) .≥ λ * τ)
-    return q - (D * q - τ * A'A * (D * q))
-  end
-  return g
+  d = size(problem.A, 2)
+  # Define function here.
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d)))
+  return z -> gradient!(compiled_loss_tape, z)
 end
 
 """
