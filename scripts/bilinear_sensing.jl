@@ -62,7 +62,7 @@ function run_experiment(
 end
 
 settings = ArgParseSettings(
-  description="Compare PolyakSGM with SuperPolyak on bilinear sensing.",
+  description = "Compare PolyakSGM with SuperPolyak on bilinear sensing.",
 )
 settings = add_base_options(settings)
 @add_arg_table! settings begin

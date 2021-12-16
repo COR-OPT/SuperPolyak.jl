@@ -27,39 +27,39 @@ Add a number of options common to all experiments to the `settings`.
 function add_base_options(settings::ArgParseSettings)
   @add_arg_table! settings begin
     "--initial-distance"
-      arg_type = Float64
-      help = "The normalized initial distance from the solution set."
-      default = 1.0
+    arg_type = Float64
+    help = "The normalized initial distance from the solution set."
+    default = 1.0
     "--eps-decrease"
-      arg_type = Float64
-      help = "The multiplicative decrease factor for the loss."
-      default = 0.25
+    arg_type = Float64
+    help = "The multiplicative decrease factor for the loss."
+    default = 0.25
     "--eps-distance"
-      arg_type = Float64
-      help =
-        "A multiplicative factor η for the distance between the initial " *
-        "point `y₀` and the output `y` of the bundle Newton method. It " *
-        "requires that |y - y₀| < η * f(y₀)."
-      default = 1.5
+    arg_type = Float64
+    help =
+      "A multiplicative factor η for the distance between the initial " *
+      "point `y₀` and the output `y` of the bundle Newton method. It " *
+      "requires that |y - y₀| < η * f(y₀)."
+    default = 1.5
     "--eps-tol"
-      arg_type = Float64
-      help = "Terminate if the loss function drops below this tolerance."
-      default = 1e-14
+    arg_type = Float64
+    help = "Terminate if the loss function drops below this tolerance."
+    default = 1e-14
     "--eta-est"
-      arg_type = Float64
-      help = "The initial estimate of the (b)-regularity constant."
-      default = 1.0
+    arg_type = Float64
+    help = "The initial estimate of the (b)-regularity constant."
+    default = 1.0
     "--eta-lb"
-      arg_type = Float64
-      help = "A lower bound for the estimated (b)-regularity constant."
-      default = 0.1
+    arg_type = Float64
+    help = "A lower bound for the estimated (b)-regularity constant."
+    default = 0.1
     "--seed"
-      arg_type = Int
-      help = "The seed for the random number generator."
-      default = 999
+    arg_type = Int
+    help = "The seed for the random number generator."
+    default = 999
     "--no-amortized"
-      help = "Disable amortization of cumulative oracle evaluations."
-      action = :store_true
+    help = "Disable amortization of cumulative oracle evaluations."
+    action = :store_true
   end
   return settings
 end

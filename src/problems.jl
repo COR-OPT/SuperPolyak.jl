@@ -16,9 +16,7 @@ end
 
 function subgradient(problem::PhaseRetrievalProblem)
   m, d = size(problem.A)
-  compiled_loss_tape = compile(
-    GradientTape(loss(problem), rand(d)),
-  )
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d)))
   return z -> gradient!(compiled_loss_tape, z)
 end
 
@@ -71,9 +69,7 @@ end
 
 function subgradient(problem::QuadraticSensingProblem)
   d, r = size(problem.X)
-  compiled_loss_tape = compile(
-    GradientTape(loss(problem), rand(d * r)),
-  )
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d * r)))
   return z -> gradient!(compiled_loss_tape, z)
 end
 

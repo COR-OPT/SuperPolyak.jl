@@ -18,7 +18,11 @@ Compute the proximal operator for the Lasso problem
 
 with step size `τ`.
 """
-function proximal_gradient(problem::LassoProblem, x::Vector{Float64}, τ::Float64)
+function proximal_gradient(
+  problem::LassoProblem,
+  x::Vector{Float64},
+  τ::Float64,
+)
   return soft_threshold(
     x - τ * problem.A' * (problem.A * x - problem.y),
     problem.λ * τ,

@@ -62,7 +62,7 @@ function run_experiment(
 end
 
 settings = ArgParseSettings(
-  description = "Compare PolyakSGM with SuperPolyak on max-linear regression."
+  description = "Compare PolyakSGM with SuperPolyak on max-linear regression.",
 )
 settings = add_base_options(settings)
 @add_arg_table! settings begin
