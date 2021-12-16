@@ -26,30 +26,31 @@
 
 \begin{document}
 \begin{tikzpicture}% table
-    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log, width=3.5in, height=3in,
-				 enlargelimits=false,
-         legend cell align=left, legend pos=north east,
-				 legend style={nodes={scale=0.9, transform shape}},
-         legend entries={{$(d,s)=(250,5)$}, {$(d,s)=(500,10)$}, {$(d,s)=(1000,20)$},
-                         {\texttt{SuperPolyak}},
-                         {Alternating Projections}}]
+    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
+                 width=3.5in, height=3in,
+                 enlargelimits=false,
+                 legend cell align=left, legend pos=north east,
+                 legend style={nodes={scale=1.0, transform shape}},
+                 legend entries={{$s=10$}, {$s=25$}, {$s=50$},
+                                 {\texttt{SuperPolyak}},
+                                 {Alt. Projections}}]
   \addlegendimage{mark=*, very thick, color=lblue};
   \addlegendimage{mark=square*, very thick, color=mblue};
   \addlegendimage{mark=triangle*, very thick, color=hblue};
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./compressed_sensing_50_250_5_bundle.csv};
+    {./compressed_sensing_150_1000_10_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./compressed_sensing_50_250_5_vanilla.csv};
+    {./compressed_sensing_150_1000_10_vanilla.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./compressed_sensing_100_500_10_bundle.csv};
+    {./compressed_sensing_375_2500_25_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./compressed_sensing_100_500_10_vanilla.csv};
+    {./compressed_sensing_375_2500_25_vanilla.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./compressed_sensing_200_1000_20_bundle.csv};
+    {./compressed_sensing_750_5000_50_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./compressed_sensing_200_1000_20_vanilla.csv};
+    {./compressed_sensing_750_5000_50_vanilla.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}

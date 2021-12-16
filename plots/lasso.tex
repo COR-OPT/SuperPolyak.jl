@@ -3,10 +3,11 @@
 % Generate convergence plots using PGFplots and the measurements in .csv format
 % Expected format: .csv with columns named `t`, `fvals`, and `cumul_oracle_calls`.
 % Columns should be comma-separated.
-% Expected filename: `phase_retrieval_$(m)_$(d)_{bundle,polyak.csv}`, where:
+% Expected filename: `compressed_sensing_$(m)_$(d)_$(k)_{bundle,polyak.csv}`, where:
 %   1) $(m) is number of measurements;
 %   2) $(d) is problem dimension;
-%   3) `bundle` or `polyak` indicates algorithm used to optimize.
+%   3) $(k) is solution sparsity;
+%   4) `bundle` or `polyak` indicates algorithm used to optimize.
 
 % This must be declared before tikz/pgf etc.
 \usepackage[dvipsnames]{xcolor}
@@ -26,29 +27,30 @@
 \begin{document}
 \begin{tikzpicture}% table
     \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
-				 enlargelimits=false, width=3.5in, height=3in,
-         legend cell align=left, legend pos=north east,
-				 legend style={nodes={scale=1.0, transform shape}},
-         legend entries={{$d=1000$}, {$d=2500$}, {$d=5000$},
-                         {\texttt{SuperPolyak}},
-                         {\texttt{PolyakSGM}}}]
+                 width=3.5in, height=3in,
+                 enlargelimits=false,
+                 legend cell align=left, legend pos=north east,
+                 legend style={nodes={scale=1.0, transform shape}},
+                 legend entries={{$s=10$}, {$s=25$}, {$s=50$},
+                                 {\texttt{SuperPolyak}},
+                                 {Proximal Gradient}}]
   \addlegendimage{mark=*, very thick, color=lblue};
   \addlegendimage{mark=square*, very thick, color=mblue};
   \addlegendimage{mark=triangle*, very thick, color=hblue};
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_3000_1000_bundle.csv};
+    {./lasso_150_1000_10_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_3000_1000_polyak.csv};
+    {./lasso_150_1000_10_vanilla.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_7500_2500_bundle.csv};
+    {./lasso_375_2500_25_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_7500_2500_polyak.csv};
+    {./lasso_375_2500_25_vanilla.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_15000_5000_bundle.csv};
+    {./lasso_750_5000_50_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_15000_5000_polyak.csv};
+    {./lasso_750_5000_50_vanilla.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}

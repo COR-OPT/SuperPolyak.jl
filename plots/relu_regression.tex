@@ -3,7 +3,7 @@
 % Generate convergence plots using PGFplots and the measurements in .csv format
 % Expected format: .csv with columns named `t`, `fvals`, and `cumul_oracle_calls`.
 % Columns should be comma-separated.
-% Expected filename: `phase_retrieval_$(m)_$(d)_{bundle,polyak.csv}`, where:
+% Expected filename: `relu_regression_$(m)_$(d)_{bundle,polyak.csv}`, where:
 %   1) $(m) is number of measurements;
 %   2) $(d) is problem dimension;
 %   3) `bundle` or `polyak` indicates algorithm used to optimize.
@@ -38,17 +38,17 @@
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_3000_1000_bundle.csv};
+    {relu_regression_3000_1000_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_3000_1000_polyak.csv};
+    {relu_regression_3000_1000_polyak.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_7500_2500_bundle.csv};
+    {relu_regression_7500_2500_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_7500_2500_polyak.csv};
+    {relu_regression_7500_2500_polyak.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_15000_5000_bundle.csv};
+    {relu_regression_15000_5000_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_15000_5000_polyak.csv};
+    {relu_regression_15000_5000_polyak.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}
