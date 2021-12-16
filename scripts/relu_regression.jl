@@ -12,7 +12,6 @@ include("util.jl")
 function run_experiment(
   m,
   d,
-  r,
   δ,
   ϵ_decrease,
   ϵ_distance,
@@ -22,7 +21,7 @@ function run_experiment(
   no_amortized,
   plot_inline,
 )
-  problem = SuperPolyak.bilinear_sensing_problem(m, d, r)
+  problem = SuperPolyak.relu_regression_problem(m, d)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   z_init = SuperPolyak.initializer(problem, δ)
@@ -34,7 +33,7 @@ function run_experiment(
     fvals = loss_history_polyak,
     cumul_oracle_calls = 0:oracle_calls_polyak,
   )
-  CSV.write("bilinear_sensing_$(m)_$(d)_$(r)_polyak.csv", df_polyak)
+  CSV.write("relu_regression_$(m)_$(d)_polyak.csv", df_polyak)
   @info "Running SuperPolyak..."
   _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
     loss_fn,
@@ -52,7 +51,7 @@ function run_experiment(
     fvals = loss_history,
     cumul_oracle_calls = cumul_oracle_calls,
   )
-  CSV.write("bilinear_sensing_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
+  CSV.write("relu_regression_$(m)_$(d)_bundle.csv", df_bundle)
   if plot_inline
     semilogy(cumul_oracle_calls, loss_history, "bo--")
     semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
@@ -62,18 +61,14 @@ function run_experiment(
 end
 
 settings = ArgParseSettings(
-  description="Compare PolyakSGM with SuperPolyak on bilinear sensing.",
+  description="Compare PolyakSGM with SuperPolyak on ReLU regression.",
 )
 settings = add_base_options(settings)
 @add_arg_table! settings begin
   "--d"
   arg_type = Int
-  help = "The dimension of each column of the unknown signal."
-  default = 100
-  "--r"
-  arg_type = Int
-  help = "The number of columns of the unknown signal."
-  default = 5
+  help = "The dimension of the unknown signal."
+  default = 500
   "--m"
   arg_type = Int
   help = "The number of measurements."
@@ -88,7 +83,6 @@ Random.seed!(args["seed"])
 run_experiment(
   args["m"],
   args["d"],
-  args["r"],
   args["initial-distance"],
   args["eps-decrease"],
   args["eps-distance"],

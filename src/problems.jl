@@ -11,7 +11,7 @@ end
 
 function loss(problem::PhaseRetrievalProblem)
   return z ->
-    (1 / length(problem.y)) * norm((problem.A * z) .^ 2 .- problem.y, 1)
+    (1 / length(problem.y)) * norm(abs.(problem.A * z) .- problem.y, 1)
 end
 
 function subgradient(problem::PhaseRetrievalProblem)
@@ -35,7 +35,7 @@ end
 function phase_retrieval_problem(m, d)
   A = randn(m, d)
   x = normalize(randn(d))
-  return PhaseRetrievalProblem(A, x, (A * x) .^ 2)
+  return PhaseRetrievalProblem(A, x, abs.(A * x))
 end
 
 """
@@ -90,56 +90,8 @@ function quadratic_sensing_problem(m::Int, d::Int, r::Int)
   return QuadraticSensingProblem(L, R, X, y)
 end
 
-struct BilinearSensingProblem
-  L::Matrix{Float64}
-  R::Matrix{Float64}
-  w::Vector{Float64}
-  x::Vector{Float64}
-  y::Vector{Float64}
-end
-
-function loss(problem::BilinearSensingProblem)
-  L, R = problem.L, problem.R
-  y = problem.y
-  m = length(y)
-  d = length(problem.w)
-  return z -> (1 / m) * norm((L * z[1:d]) .* (R * z[(d+1):end]) .- y, 1)
-end
-
-function subgradient(problem::BilinearSensingProblem)
-  d = length(problem.w)
-  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d)))
-  return z -> gradient!(compiled_loss_tape, z)
-end
-
 """
-  initializer(problem::BilinearSensingProblem, δ::Float64)
-
-Return an initial estimate `(w₀, x₀)` that is `δ`-close to the ground truth
-in normalized distance. Output a single vector containing `w₀` and `x₀` stacked
-vertically.
-"""
-function initializer(problem::BilinearSensingProblem, δ::Float64)
-  wx_stacked = [problem.w; problem.x]
-  return wx_stacked + δ * normalize(randn(length(wx_stacked)))
-end
-
-"""
-  bilinear_sensing_problem(m::Int, d::Int)
-
-Generate a bilinear sensing problem in `d` dimensions with `m` measurements
-using random Gaussian sensing matrices.
-"""
-function bilinear_sensing_problem(m::Int, d::Int)
-  L = randn(m, d)
-  R = randn(m, d)
-  w = normalize(randn(d))
-  x = normalize(randn(d))
-  return BilinearSensingProblem(L, R, w, x, (L * w) .* (R * x))
-end
-
-"""
-  GeneralBilinearSensingProblem
+  BilinearSensingProblem
 
 A bilinear sensing problem with measurements
 
@@ -147,7 +99,7 @@ A bilinear sensing problem with measurements
 
 where `W` and `X` are `d × r` matrices.
 """
-struct GeneralBilinearSensingProblem
+struct BilinearSensingProblem
   L::Matrix{Float64}
   R::Matrix{Float64}
   W::Matrix{Float64}
@@ -156,13 +108,13 @@ struct GeneralBilinearSensingProblem
 end
 
 """
-  loss(problem::GeneralBilinearSensingProblem)
+  loss(problem::BilinearSensingProblem)
 
 Implement the ℓ₁ robust loss for a bilinear sensing problem with general rank.
 Assumes that the argument will be a vector containing the "flattened" version
 of the matrix `[W, X]`, where `W` and `X` are `d × r` matrices.
 """
-function loss(problem::GeneralBilinearSensingProblem)
+function loss(problem::BilinearSensingProblem)
   L = problem.L
   R = problem.R
   y = problem.y
@@ -178,44 +130,42 @@ function loss(problem::GeneralBilinearSensingProblem)
 end
 
 """
-  subgradient(problem::GeneralBilinearSensingProblem)
+  subgradient(problem::BilinearSensingProblem)
 
 Implement the subgradient of the ℓ₁ robust loss for a bilinear sensing problem
 with general rank. Like `loss(problem)`, assumes that the argument will be a
 vector containing the "flattened" version of the matrix `[W, X]`, where `W` and
 `X` are `d × r` matrices.
 """
-function subgradient(problem::GeneralBilinearSensingProblem)
+function subgradient(problem::BilinearSensingProblem)
   d, r = size(problem.W)
-  compiled_loss_tape = compile(
-    GradientTape(loss(problem), rand(2 * d * r)),
-  )
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(2 * d * r)))
   return z -> gradient!(compiled_loss_tape, z)
 end
 
 """
-  general_bilinear_sensing_problem(m::Int, d::Int, r::Int)
+  bilinear_sensing_problem(m::Int, d::Int, r::Int)
 
 Generate a bilinear sensing problem with solutions of dimension `d × r` and `m`
 measurements using random Gaussian sensing matrices.
 """
-function general_bilinear_sensing_problem(m::Int, d::Int, r::Int)
+function bilinear_sensing_problem(m::Int, d::Int, r::Int)
   L = randn(m, d)
   R = randn(m, d)
   # Solutions on the orthogonal manifold O(d, r).
   W = Matrix(qr(randn(d, r)).Q)
   X = Matrix(qr(randn(d, r)).Q)
   y = sum((L * W) .* (R * X), dims = 2)[:]
-  return GeneralBilinearSensingProblem(L, R, W, X, y)
+  return BilinearSensingProblem(L, R, W, X, y)
 end
 
 """
-  initializer(problem::GeneralBilinearSensingProblem, δ::Float64)
+  initializer(problem::BilinearSensingProblem, δ::Float64)
 
 Generate an initial guess for the solution to `problem` that is `δ`-far from
 the ground truth when distance is measured in the Euclidean norm.
 """
-function initializer(problem::GeneralBilinearSensingProblem, δ::Float64)
+function initializer(problem::BilinearSensingProblem, δ::Float64)
   wx_stacked = [vec(problem.W); vec(problem.X)]
   return wx_stacked + δ * normalize(randn(length(wx_stacked)))
 end
@@ -229,6 +179,47 @@ function generate_sparse_vector(d, k)
   x = zeros(d)
   x[sample(1:d, k, replace = false)] = normalize(randn(k))
   return x
+end
+
+struct ReluRegressionProblem
+  A::Matrix{Float64}
+  x::Vector{Float64}
+  y::Vector{Float64}
+end
+
+function loss(problem::ReluRegressionProblem)
+  A = problem.A
+  y = problem.y
+  m = length(y)
+  return z -> (1 / m) * norm(max.(A * z, 0.0) - y, 1)
+end
+
+function subgradient(problem::ReluRegressionProblem)
+  d = size(problem.A, 2)
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d)))
+  return z -> gradient!(compiled_loss_tape, z)
+end
+
+"""
+  initializer(problem::ReluRegressionProblem, δ::Float64)
+
+Return an initial estimate of the unknown vector in the ReLU regression
+`problem` with normalized distance `δ` from the ground truth.
+"""
+function initializer(problem::ReluRegressionProblem, δ::Float64)
+  return problem.x + δ * normalize(randn(length(problem.x)))
+end
+
+"""
+  relu_regression_problem(m, d)
+
+Create a random instance of ReLU regression problem with random Gaussian
+measurement vectors.
+"""
+function relu_regression_problem(m, d)
+  A = randn(m, d)
+  x = normalize(randn(d))
+  return ReluRegressionProblem(A, x, max.(A * x, 0.0))
 end
 
 struct MaxAffineRegressionProblem
@@ -250,9 +241,7 @@ end
 
 function subgradient(problem::MaxAffineRegressionProblem)
   d, k = size(problem.βs)
-  compiled_loss_tape = compile(
-    GradientTape(loss(problem), rand(d * k)),
-  )
+  compiled_loss_tape = compile(GradientTape(loss(problem), rand(d * k)))
   return z -> gradient!(compiled_loss_tape, z)
 end
 
@@ -267,6 +256,12 @@ function initializer(problem::MaxAffineRegressionProblem, δ::Float64)
   return problem.βs .+ δ .* (Δ ./ norm(Δ))
 end
 
+"""
+  max_affine_regression_problem(m, d, k)
+
+Create a random instance of a max-linear regression problem with random
+Gaussian measurements.
+"""
 function max_affine_regression_problem(m, d, k)
   A = randn(m, d)
   βs = mapslices(normalize, randn(d, k), dims = 1)
