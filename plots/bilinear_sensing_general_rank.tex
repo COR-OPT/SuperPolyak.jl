@@ -1,0 +1,56 @@
+\documentclass{standalone}
+
+% Generate convergence plots using PGFplots and the measurements in .csv format
+% Expected format: .csv with columns named `t`, `fvals`, and `cumul_oracle_calls`.
+% Columns should be comma-separated.
+% Expected filename: `compressed_sensing_$(m)_$(d)_$(k)_{bundle,polyak.csv}`, where:
+%   1) $(m) is number of measurements;
+%   2) $(d) is problem dimension;
+%   3) $(k) is solution sparsity;
+%   4) `bundle` or `polyak` indicates algorithm used to optimize.
+
+% This must be declared before tikz/pgf etc.
+\usepackage[dvipsnames]{xcolor}
+% Color palette using http://colorbrewer2.org/#type=diverging&scheme=RdBu&n=6
+\definecolor{lblue}{HTML}{908cc0}
+\definecolor{mblue}{HTML}{519cc8}
+\definecolor{hblue}{HTML}{1d5996}
+\definecolor{lred}{HTML}{cb5501}
+\definecolor{mred}{HTML}{f1885b}
+\definecolor{hred}{HTML}{b3001e}
+\definecolor{ttred}{HTML}{ca3542}
+
+\usepackage{svg}
+\usepackage{tikz,pgfplots}
+\usepackage{xfrac}
+
+\begin{document}
+\begin{tikzpicture}% table
+    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
+                 width=3.5in, height=3in,
+                 enlargelimits=false,
+                 legend cell align=left, legend pos=north east,
+                 legend style={nodes={scale=1.0, transform shape}},
+                 legend entries={{$(d, r) = (500, 10)$}, {$(d, r) = (1000, 5)$}, {$(d, r) = (2500, 2)$},
+                                 {\texttt{SuperPolyak}},
+                                 {\texttt{PolyakSGM}}}]
+  \addlegendimage{mark=*, very thick, color=lblue};
+  \addlegendimage{mark=square*, very thick, color=mblue};
+  \addlegendimage{mark=triangle*, very thick, color=hblue};
+  \addlegendimage{no markers, very thick, solid};
+  \addlegendimage{no markers, very thick, dashed};
+	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_500_10_bundle.csv};
+	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_500_10_polyak.csv};
+  \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_1000_5_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_1000_5_polyak.csv};
+  \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
+    {./bilinear_sensing_15000_2500_2_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
+    {./bilinear_sensing_15000_2500_2_polyak.csv};
+	\end{axis}
+\end{tikzpicture}
+\end{document}
