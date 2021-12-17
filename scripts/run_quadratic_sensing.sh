@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-for r in 5 10; do
-	for d in 500 1000; do
-		julia -O3 --project=scripts scripts/quadratic_sensing.jl \
-			--d ${d} --r ${r} --m $(( 3 * d * r )) --eps-decrease 0.5
-	done
-done
+RUNCMD='julia -O3 --project=scripts scripts/quadratic_sensing.jl --m 15000 --eta-lb 0.5 --eps-decrease 0.5'
+
+echo "Running d=500, r=10"
+$(RUNCMD) --d 500 --r 10
+echo "Running d=1000, r=5"
+$(RUNCMD) --d 1000 --r 5
+echo "Running d=2500, r=2"
+$(RUNCMD) --d 2500 --r 2
