@@ -27,16 +27,17 @@ function run_experiment(
   grad_fn = SuperPolyak.subgradient(problem)
   x_init = SuperPolyak.initializer(problem, δ)
   @info "Running subgradient method..."
-  _, loss_history_polyak, oracle_calls_polyak =
+  _, loss_history_polyak, oracle_calls_polyak, elapsed_time_polyak =
     SuperPolyak.subgradient_method(loss_fn, grad_fn, x_init[:], ϵ_tol)
   df_polyak = DataFrame(
     t = 1:length(loss_history_polyak),
     fvals = loss_history_polyak,
     cumul_oracle_calls = 0:oracle_calls_polyak,
+    cumul_elapsed_time = cumsum(elapsed_time_polyak),
   )
   CSV.write("quadratic_sensing_$(m)_$(d)_$(r)_polyak.csv", df_polyak)
   @info "Running SuperPolyak..."
-  _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
+  _, loss_history, oracle_calls, elapsed_time_bundle = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     x_init[:],
@@ -51,6 +52,7 @@ function run_experiment(
     t = 1:length(loss_history),
     fvals = loss_history,
     cumul_oracle_calls = cumul_oracle_calls,
+    cumul_elapsed_time = cumsum(elapsed_time_bundle),
   )
   CSV.write("quadratic_sensing_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
   if plot_inline

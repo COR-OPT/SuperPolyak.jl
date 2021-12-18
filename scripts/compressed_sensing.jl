@@ -65,7 +65,7 @@ function run_experiment(
   )
   CSV.write("compressed_sensing_$(m)_$(d)_$(k)_vanilla.csv", df_vanilla)
   @info "Running SuperPolyak..."
-  _, loss_history, oracle_calls = SuperPolyak.bundle_newton(
+  _, loss_history, oracle_calls, _ = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     x_init[:],
