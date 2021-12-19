@@ -217,7 +217,7 @@ end
 
 
 """
-  build_bundle_qr(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
+  build_bundle_qr(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
 An efficient version of the BuildBundle algorithm using an incrementally
 updated QR factorization. Total runtime is O(d³) instead of O(d⁴).
@@ -225,75 +225,74 @@ updated QR factorization. Total runtime is O(d³) instead of O(d⁴).
 function build_bundle_qr(
   f::Function,
   gradf::Function,
-  x₀::Vector{Float64},
+  y₀::Vector{Float64},
   η::Float64,
   min_f::Float64,
   η_est::Float64,
 )
-  d = length(x₀)
-  bundle = zeros(d, d)
+  d = length(y₀)
+  bvect = zeros(d)
   fvals = zeros(d)
-  jvals = zeros(d)
   resid = zeros(d)
-  # Matrix of iterates - column i is the i-th iterate.
-  solns = zeros(d, d)
-  y₀ = x₀[:]
-  y = x₀[:]
+  y = y₀[:]
   # To obtain a solution equivalent to applying the pseudoinverse, we use the
   # QR factorization of the transpose of the bundle matrix. This is because the
   # minimum-norm solution to Ax = b when A is full row rank can be found via the
   # QR factorization of Aᵀ.
-  bundle[1, :] = gradf(y)
-  fvals[1] = f(y) - min_f
-  jvals[1] = gradf(y)' * (y - y₀)
-  Q, R = qr(bundle[1:1, :]')
+  copyto!(bvect, gradf(y))
+  fvals[1] = f(y) - min_f + bvect' * (y₀ - y)
+  Q, R = qr(bvect)
   # "Unwrap" LinearAlgebra.QRCompactWYQ type.
   Q = Q * Matrix(1.0 * LinearAlgebra.I, d, d)
-  y = y₀ - Q[:, 1] .* (R' \ [fvals[1] - jvals[1]])
-  solns[:, 1] = y[:]
+  y = y₀ - Q[:, 1] .* (R' \ [fvals[1]])
   resid[1] = f(y) - min_f
-  Δ = f(x₀) - min_f
+  Δ = f(y₀) - min_f
+  # Exit early if solution escaped ball.
+  if norm(y - y₀) > η * Δ
+    return nothing, 1
+  end
+  # Best solution and function value found so far.
+  y_best = y[:]
+  f_best = resid[1]
   @debug "bundle_idx = 1 - error: $(resid[1])"
   for bundle_idx in 2:d
-    bundle[bundle_idx, :] = gradf(y)
-    fvals[bundle_idx] = f(y) - min_f
-    jvals[bundle_idx] = gradf(y)' * (y - y₀)
+    copyto!(bvect, gradf(y))
+    fvals[bundle_idx] = f(y) - min_f + bvect' * (y₀ - y)
     # qrinsert!(Q, R, v): QR = Aᵀ and v is the column added.
     # Only assign to R since Q is modified in-place.
-    R = qrinsert!(Q, R, bundle[bundle_idx, :])
+    R = qrinsert!(Q, R, bvect)
     # Terminate if rank deficiency is detected.
-    if (rank(R) < bundle_idx)
+    if (R[bundle_idx, bundle_idx] < 1e-15)
       @debug "Stopping at idx = $(bundle_idx) - reason: singular R"
-      return pick_best_candidate(
-        solns[:, 1:(bundle_idx-1)],
-        resid[1:(bundle_idx-1)],
-        y₀,
-        η * Δ,
-      )
+      # If R is singular, solve the system from scratch.
+      y_new = y₀ - (Q * R)' \ fvals[1:bundle_idx]
+      # Return y_new since it will be guaranteed to reduce superlinearly,
+      # as long as it does not escape the ball.
+      if (norm(y_new - y₀) < η * Δ)
+        return y_new, bundle_idx
+      else
+        return y_best, bundle_idx
+      end
     end
-    y =
-      y₀ -
-      view(Q, :, 1:bundle_idx) *
-      (R' \ (fvals[1:bundle_idx] - jvals[1:bundle_idx]))
+    y = y₀ - view(Q, :, 1:bundle_idx) * (R' \ fvals[1:bundle_idx])
+    resid[bundle_idx] = f(y) - min_f
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * Δ)
       @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
-      return pick_best_candidate(
-        solns[:, 1:(bundle_idx-1)],
-        resid[1:(bundle_idx-1)],
-        y₀,
-        η * Δ,
-      )
+      return y_best, bundle_idx
     end
     # Terminate early if function value decreased significantly.
     if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
       return y, bundle_idx
     end
-    solns[:, bundle_idx] = y[:]
-    resid[bundle_idx] = f(y) - min_f
+    # Otherwise, update best solution so far.
+    if (resid[bundle_idx] < f_best)
+      copyto!(y_best, y)
+      f_best = resid[bundle_idx]
+    end
     @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
-  return pick_best_candidate(solns, resid, y₀, η * Δ)
+  return y_best, d
 end
 
 
