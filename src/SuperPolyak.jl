@@ -1,6 +1,8 @@
 module SuperPolyak
 
+import IterativeSolvers: lsqr!, minres!
 import LinearAlgebra
+import LinearMaps: LinearMap
 import ReverseDiff: GradientTape, gradient!, compile
 import SparseArrays
 import StatsBase
@@ -219,6 +221,77 @@ function build_bundle(
   return pick_best_candidate(solns, resid, y₀, η * Δ)
 end
 
+"""
+  build_bundle_minres(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
+
+An efficient version of the BuildBundle algorithm using a recycled Krylov method.
+"""
+function build_bundle_minres(
+  f::Function,
+  gradf::Function,
+  y₀::Vector{Float64},
+  η::Float64,
+  min_f::Float64,
+  η_est::Float64,
+)
+  d = length(y₀)
+  bvect = zeros(d)
+  fvals = zeros(d)
+  resid = zeros(d)
+  bmtrx = zeros(d, d)
+  y = y₀[:]
+  # To obtain a solution equivalent to applying the pseudoinverse, we use the
+  # QR factorization of the transpose of the bundle matrix. This is because the
+  # minimum-norm solution to Ax = b when A is full row rank can be found via the
+  # QR factorization of Aᵀ.
+  bmtrx[:, 1] = gradf(y)
+  fvals[1] = f(y) - min_f + bmtrx[:, 1]' * (y₀ - y)
+  y = y₀ - bmtrx[:, 1]' \ fvals[1]
+  resid[1] = f(y) - min_f
+  Δ = f(y₀) - min_f
+  # Exit early if solution escaped ball.
+  if norm(y - y₀) > η * Δ
+    return nothing, 1
+  end
+  # Best solution and function value found so far.
+  y_best = y[:]
+  f_best = resid[1]
+  # Difference dy for the normal equations.
+  dy = zeros(d)
+  @debug "bundle_idx = 1 - error: $(resid[1])"
+  for bundle_idx in 2:d
+    bmtrx[:, bundle_idx] = gradf(y)
+    fvals[bundle_idx] = f(y) - min_f + bmtrx[:, bundle_idx]' * (y₀ - y)
+    At = view(bmtrx, :, 1:bundle_idx)
+    # fmap = LinearMap(
+    #   z -> At * (At'z),
+    #   d,
+    #   d,
+    #   issymmetric=true,
+    # )
+    lsqr!(dy, At', fvals[1:bundle_idx], maxiter=bundle_idx)
+    y = y₀ - dy
+    resid[bundle_idx] = f(y) - min_f
+    # Terminate early if new point escaped ball around y₀.
+    if (norm(y - y₀) > η * Δ)
+      @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
+      return y_best, bundle_idx
+    end
+    # Terminate early if function value decreased significantly.
+    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
+      return y, bundle_idx
+    end
+    # Otherwise, update best solution so far.
+    if (resid[bundle_idx] < f_best)
+      copyto!(y_best, y)
+      f_best = resid[bundle_idx]
+    end
+    @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
+  end
+  return y_best, d
+end
+
+
 
 """
   build_bundle_qr(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
@@ -344,7 +417,7 @@ function bundle_newton(
     η = ϵ_distance^(idx)
     bundle_stats = @timed bundle_step, bundle_calls =
       (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f, η_est) :
-      build_bundle(f, gradf, x, η, min_f, η_est)
+      build_bundle_minres(f, gradf, x, η, min_f, η_est)
     cumul_time += bundle_stats.time - bundle_stats.gctime
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
