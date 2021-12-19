@@ -82,13 +82,17 @@ function subgradient_method(
   x = x₀[:]
   oracle_calls = 0
   fvals = [f(x₀)]
+  elapsed_time = [0.0]
   while (fvals[end] > ϵ)
-    g = gradf(x)
-    x -= (f(x) - min_f) * g / (norm(g)^2)
+    stats = @timed begin
+      g = gradf(x)
+      x -= (f(x) - min_f) * g / (norm(g)^2)
+    end
     oracle_calls += 1
     push!(fvals, f(x) - min_f)
+    push!(elapsed_time, stats.time - stats.gctime)
   end
-  return x, fvals, oracle_calls
+  return x, fvals, oracle_calls, elapsed_time
 end
 
 """
@@ -333,12 +337,15 @@ function bundle_newton(
   x = x₀[:]
   fvals = [f(x₀) - min_f]
   oracle_calls = [0]
+  elapsed_time = [0.0]
   idx = 0
   while true
+    cumul_time = 0.0
     η = ϵ_distance^(idx)
-    bundle_step, bundle_calls =
+    bundle_stats = @timed bundle_step, bundle_calls =
       (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f, η_est) :
       build_bundle(f, gradf, x, η, min_f, η_est)
+    cumul_time += bundle_stats.time - bundle_stats.gctime
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
        ((f(bundle_step) - min_f) > (f(x) - min_f)^(1 + η_est)) &&
@@ -348,7 +355,9 @@ function bundle_newton(
     end
     if isnothing(bundle_step) ||
        ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
-      x, fallback_calls = fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
+      fallback_stats = @timed x, fallback_calls =
+        fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
+      cumul_time += fallback_stats.time - fallback_stats.gctime
       # Include the number of oracle calls made by the failed bundle step.
       push!(oracle_calls, fallback_calls + bundle_calls)
     else
@@ -357,7 +366,8 @@ function bundle_newton(
     end
     idx += 1
     push!(fvals, f(x) - min_f)
-    (fvals[end] ≤ ϵ_tol) && return x, fvals, oracle_calls
+    push!(elapsed_time, cumul_time)
+    (fvals[end] ≤ ϵ_tol) && return x, fvals, oracle_calls, elapsed_time
   end
 end
 

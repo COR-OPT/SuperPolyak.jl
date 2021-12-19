@@ -61,7 +61,7 @@ function run_experiment(
   )
   CSV.write("lasso_$(m)_$(d)_$(r)_vanilla.csv", df_vanilla)
   @info "Running SuperPolyak..."
-  x_bundle, loss_history, oracle_calls = SuperPolyak.bundle_newton(
+  x_bundle, loss_history, oracle_calls, _ = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     x_init[:],
