@@ -396,7 +396,7 @@ The result of an invocation of the `superpolyak` algorithm.
 struct SuperPolyakResult
   solution::Vector{Float64}
   loss_history::Vector{Float64}
-  oracle_evals::Vector{Int}
+  oracle_calls::Vector{Int}
   elapsed_time::Vector{Float64}
   step_types::Vector{String}
 end
