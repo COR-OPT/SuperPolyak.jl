@@ -152,86 +152,10 @@ function argmin_parentindex(v::Vector{Float64}, b::BitVector)
 end
 
 """
-  pick_best_candidate(candidates, residuals, y₀, ϵ)
-
-Pick the best candidate among a list of `candidates` (with one candidate
-per column) with corresponding `residuals`. Return the candidate with the
-lowest residual among all candidates `y` satisfying `|y - y₀| < ϵ` (or `nothing`
-if no such candidate exists) as well as the number of candidates considered.
-"""
-function pick_best_candidate(candidates, residuals, y₀, ϵ)
-  valid_inds = sum((candidates .- y₀) .^ 2, dims = 1)[:] .< ϵ^2
-  (sum(valid_inds) == 0) && return nothing, size(candidates, 2)
-  best_idx = argmin_parentindex(residuals, valid_inds)
-  @debug "best_idx = $(best_idx) -- R = $(residuals[best_idx])"
-  return candidates[:, best_idx], size(candidates, 2)
-end
-
-"""
-  build_bundle(f::Function, gradf::Function, x₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
-
-Build a bundle for taking a Newton step in the problem of finding zeros of `f`.
-Runs `d` steps and returns an element `yi` such that:
-
-  a) `|yᵢ - x₀| < η * (f(x₀) - min_f)`;
-  b) f(yᵢ) has the minimal value among all `y` such that `|y - x₀| < η * (f(x₀) - min_f)`.
-
-The algorithm terminates if `yᵢ` satisfies `|yᵢ - x₀| > η * (f(x₀) - min_f)` or
-`f(yᵢ) - min_f < (f(x₀) - min_f)^(1+η_est)`.
-
-If no iterate satisfies the above, the function outputs `nothing`.
-"""
-function build_bundle(
-  f::Function,
-  gradf::Function,
-  x₀::Vector{Float64},
-  η::Float64,
-  min_f::Float64,
-  η_est::Float64,
-)
-  d = length(x₀)
-  # Allocate bundle, function + jacobian values.
-  bundle = zeros(d, d)
-  fvals = zeros(d)
-  jvals = zeros(d)
-  resid = zeros(d)
-  # Matrix of iterates - column i is the i-th iterate.
-  solns = zeros(d, d)
-  y₀ = x₀[:]
-  y = x₀[:]
-  Δ = f(x₀) - min_f
-  for bundle_idx in 1:d
-    bundle[bundle_idx, :] = gradf(y)
-    fvals[bundle_idx] = f(y) - min_f
-    jvals[bundle_idx] = gradf(y)' * (y - y₀)
-    A = view(bundle, 1:bundle_idx, :)
-    # Compute new point, add to list of candidates
-    y = y₀ - A \ (fvals[1:bundle_idx] - jvals[1:bundle_idx])
-    # Terminate early if new point escaped ball around y₀.
-    if (norm(y - y₀) > η * Δ)
-      @debug "Early stopping at idx = $(bundle_idx)"
-      return pick_best_candidate(
-        solns[:, 1:(bundle_idx-1)],
-        resid[1:(bundle_idx-1)],
-        y₀,
-        η * Δ,
-      )
-    end
-    # Terminate early if function value decreased significantly.
-    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
-      return y, bundle_idx
-    end
-    solns[:, bundle_idx] = y[:]
-    resid[bundle_idx] = f(y) - min_f
-    @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
-  end
-  return pick_best_candidate(solns, resid, y₀, η * Δ)
-end
-
-"""
   build_bundle_lsqr(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
-An efficient version of the BuildBundle algorithm using a recycled Krylov method.
+An efficient version of the BuildBundle algorithm using the LSQR linear system
+solver for the quadratic subproblems.
 """
 function build_bundle_lsqr(
   f::Function,
@@ -242,18 +166,14 @@ function build_bundle_lsqr(
   η_est::Float64,
 )
   d = length(y₀)
-  bvect = zeros(d)
   fvals = zeros(d)
   resid = zeros(d)
-  bmtrx = zeros(d, d)
+  # Resizable bundle matrix. Each column is a bundle element.
+  bmtrx = ElasticMatrix(zeros(d, 0))
   y = y₀[:]
-  # To obtain a solution equivalent to applying the pseudoinverse, we use the
-  # QR factorization of the transpose of the bundle matrix. This is because the
-  # minimum-norm solution to Ax = b when A is full row rank can be found via the
-  # QR factorization of Aᵀ.
-  bmtrx[:, 1] = gradf(y)
+  append!(bmtrx, gradf(y))
   fvals[1] = f(y) - min_f + bmtrx[:, 1]' * (y₀ - y)
-  y = y₀ - bmtrx[:, 1]' \ fvals[1]
+  y = y₀ - Vector(bmtrx[:, 1])' \ fvals[1]
   resid[1] = f(y) - min_f
   Δ = f(y₀) - min_f
   # Exit early if solution escaped ball.
@@ -264,17 +184,24 @@ function build_bundle_lsqr(
   y_best = y[:]
   f_best = resid[1]
   # Difference dy for the normal equations.
-  dy = zeros(d)
+  dy = y - y₀
   for bundle_idx in 2:d
-    bmtrx[:, bundle_idx] = gradf(y)
+    append!(bmtrx, gradf(y))
     fvals[bundle_idx] = f(y) - min_f + bmtrx[:, bundle_idx]' * (y₀ - y)
     At = view(bmtrx, :, 1:bundle_idx)
-    lsqr!(dy, At', fvals[1:bundle_idx], maxiter=bundle_idx,
-          atol = Δ, btol = Δ, conlim = 0.0)
+    lsqr!(
+      dy,
+      At',
+      view(fvals, 1:bundle_idx),
+      maxiter = bundle_idx,
+      atol = max(Δ, 1e-15),
+      btol = max(Δ, 1e-15),
+      conlim = 0.0,
+    )
     y = y₀ - dy
     resid[bundle_idx] = f(y) - min_f
     # Terminate early if new point escaped ball around y₀.
-    if (norm(y - y₀) > η * Δ)
+    if (norm(dy) > η * Δ)
       @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
       return y_best, bundle_idx
     end
@@ -295,7 +222,7 @@ end
   build_bundle_wv(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
 An efficient version of the BuildBundle algorithm using an incrementally updated
-QR algorithm.
+QR algorithm based on the compact WV representation.
 """
 function build_bundle_wv(
   f::Function,
@@ -414,7 +341,7 @@ function build_bundle_qr(
     if (R[bundle_idx, bundle_idx] < 1e-15)
       @debug "Stopping at idx = $(bundle_idx) - reason: singular R"
       # If R is singular, solve the system from scratch.
-      y_new = y₀ - (Q * R)' \ fvals[1:bundle_idx]
+      y_new = y₀ - (view(Q, :, 1:bundle_idx) * R)' \ fvals[1:bundle_idx]
       # Return y_new since it will be guaranteed to reduce superlinearly,
       # as long as it does not escape the ball.
       if (norm(y_new - y₀) < η * Δ)
@@ -444,17 +371,67 @@ function build_bundle_qr(
   return y_best, d
 end
 
+"""
+  BundleSystemSolver
+
+An type intended to represent the available implementations of the bundle
+system solver.
+"""
+abstract type BundleSystemSolver end
+
+struct LSQR <: BundleSystemSolver end
+struct INCREMENTAL_QR_WV <: BundleSystemSolver end
+struct INCREMENTAL_QR_VANILLA <: BundleSystemSolver end
+
+# Choose the appropriate "build_bundle_[...]" method based on the solver.
+bundle_func(solver::LSQR) = build_bundle_lsqr
+bundle_func(solver::INCREMENTAL_QR_VANILLA) = build_bundle_qr
+bundle_func(solver::INCREMENTAL_QR_WV) = build_bundle_wv
 
 """
-  bundle_newton(f::Function, gradf::Function, x₀::Vector{Float64};
-                ϵ_tol::Float64 = 1e-15, ϵ_decrease::Float64 = (1 / 2),
-                ϵ_distance::Float64 = (3 / 2), min_f::Float64 = 0.0,
-                use_qr_bundle::Bool = true, η_est::Float64 = 2.0, kwargs...)
+  SuperPolyakResult
 
-Run the bundle Newton method to find a zero of `f` with Jacobian `gradf`,
+The result of an invocation of the `superpolyak` algorithm.
+"""
+struct SuperPolyakResult
+  solution::Vector{Float64}
+  loss_history::Vector{Float64}
+  oracle_evals::Vector{Int}
+  elapsed_time::Vector{Float64}
+  step_types::Vector{String}
+end
+
+"""
+  superpolyak(f::Function, gradf::Function, x₀::Vector{Float64};
+              ϵ_tol::Float64 = 1e-15, ϵ_decrease::Float64 = (1 / 2),
+              ϵ_distance::Float64 = (3 / 2), min_f::Float64 = 0.0,
+              bundle_system_solver::BundleSystemSolver = LSQR(),
+              η_est::Float64 = 1.0, kwargs...)
+
+Run the SuperPolyak method to find a zero of `f` with subgradient `gradf`,
 starting from an initial point `x₀`.
+
+Arguments:
+- `f::Function`: A callable implementing the loss function.
+- `gradf::Function`: A callable implementing the subgradient mapping.
+- `x₀::Vector{Float64}`: The initial iterate of the algorithm.
+- `ϵ_tol::Float64 = 1e-15`: The desired tolerance for the solution.
+- `ϵ_distance::Float64 = 3/2`: The factor determining diverging iterates. Must be > 1.
+- `ϵ_decrease::Float64 = 1/2`: The decrease factor per iteration. Must be < 1.
+- `min_f::Float64 = 0.0`: The (known) minimal value of the loss.
+- `fallback_alg::Function = polyak_sgm`: A callable that implements the fallback algorithm used.
+- `bundle_system_solver::BundleSystemSolver = LSQR()`: The solver to use for the bundle system.
+- `η_est::Float64 = 1.0`: An estimate of the (b)-regularity constant.
+- `η_lb::Float64 = 0.1`: A lower bound on the estimate of the (b)-regularity constant.
+
+In the above, the product `ϵ_distance * ϵ_decrease` must be smaller than `1`
+for the algorithm to converge superlinearly.
+
+Returns:
+- `result::SuperPolyakResult`: A struct containing the solution found and a history
+  of: loss values, oracle evaluations, elapsed time, and type of step taken per iteration.
 """
-function bundle_newton(
+function superpolyak(
   f::Function,
   gradf::Function,
   x₀::Vector{Float64};
@@ -463,7 +440,7 @@ function bundle_newton(
   ϵ_distance::Float64 = (3 / 2),
   min_f::Float64 = 0.0,
   fallback_alg::Function = polyak_sgm,
-  use_qr_bundle::Bool = true,
+  bundle_system_solver::BundleSystemSolver = LSQR(),
   η_est::Float64 = 1.0,
   η_lb::Float64 = 0.1,
   kwargs...,
@@ -483,13 +460,15 @@ function bundle_newton(
   fvals = [f(x₀) - min_f]
   oracle_calls = [0]
   elapsed_time = [0.0]
+  step_types = ["NONE"]
   idx = 0
+  # Determine the bundle system solver.
+  bundle_solver = bundle_func(bundle_system_solver)
   while true
     cumul_time = 0.0
     η = ϵ_distance^(idx)
     bundle_stats = @timed bundle_step, bundle_calls =
-      (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f, η_est) :
-      build_bundle_wv(f, gradf, x, η, min_f, η_est)
+      bundle_solver(f, gradf, x, η, min_f, η_est)
     cumul_time += bundle_stats.time - bundle_stats.gctime
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
@@ -506,15 +485,25 @@ function bundle_newton(
       cumul_time += fallback_stats.time - fallback_stats.gctime
       # Include the number of oracle calls made by the failed bundle step.
       push!(oracle_calls, fallback_calls + bundle_calls)
+      push!(step_types, "FALLBACK")
     else
       @debug "Bundle step successful (k=$(idx))"
       x = bundle_step[:]
       push!(oracle_calls, bundle_calls)
+      push!(step_types, "BUNDLE")
     end
     idx += 1
     push!(fvals, f(x) - min_f)
     push!(elapsed_time, cumul_time)
-    (fvals[end] ≤ ϵ_tol) && return x, fvals, oracle_calls, elapsed_time
+    if fvals[end] ≤ ϵ_tol
+      return SuperPolyakResult(
+        x,
+        fvals,
+        oracle_calls,
+        elapsed_time,
+        step_types,
+      )
+    end
   end
 end
 
