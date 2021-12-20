@@ -12,6 +12,7 @@ const givens = LinearAlgebra.givens
 const lmul! = LinearAlgebra.lmul!
 const norm = LinearAlgebra.norm
 const normalize = LinearAlgebra.normalize
+const normalize! = LinearAlgebra.normalize!
 const opnorm = LinearAlgebra.opnorm
 const qr = LinearAlgebra.qr
 const rank = LinearAlgebra.rank
@@ -19,6 +20,7 @@ const sample = StatsBase.sample
 const sparse = SparseArrays.sparse
 const SparseMatrixCSC = SparseArrays.SparseMatrixCSC
 const spzeros = SparseArrays.spzeros
+const UpperTriangular = LinearAlgebra.UpperTriangular
 
 # An abstract type encoding an optimization problem. All concrete problem
 # instances should be subtypes of `OptProblem`.
@@ -222,11 +224,11 @@ function build_bundle(
 end
 
 """
-  build_bundle_minres(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
+  build_bundle_lsqr(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
 An efficient version of the BuildBundle algorithm using a recycled Krylov method.
 """
-function build_bundle_minres(
+function build_bundle_lsqr(
   f::Function,
   gradf::Function,
   y₀::Vector{Float64},
@@ -258,18 +260,12 @@ function build_bundle_minres(
   f_best = resid[1]
   # Difference dy for the normal equations.
   dy = zeros(d)
-  @debug "bundle_idx = 1 - error: $(resid[1])"
   for bundle_idx in 2:d
     bmtrx[:, bundle_idx] = gradf(y)
     fvals[bundle_idx] = f(y) - min_f + bmtrx[:, bundle_idx]' * (y₀ - y)
     At = view(bmtrx, :, 1:bundle_idx)
-    # fmap = LinearMap(
-    #   z -> At * (At'z),
-    #   d,
-    #   d,
-    #   issymmetric=true,
-    # )
-    lsqr!(dy, At', fvals[1:bundle_idx], maxiter=bundle_idx)
+    lsqr!(dy, At', fvals[1:bundle_idx], maxiter=bundle_idx,
+          atol = Δ, btol = Δ, conlim = 0.0)
     y = y₀ - dy
     resid[bundle_idx] = f(y) - min_f
     # Terminate early if new point escaped ball around y₀.
@@ -286,12 +282,83 @@ function build_bundle_minres(
       copyto!(y_best, y)
       f_best = resid[bundle_idx]
     end
-    @debug "bundle_idx = $(bundle_idx) - error: $(resid[bundle_idx])"
   end
   return y_best, d
 end
 
+"""
+  build_bundle_wv(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
 
+An efficient version of the BuildBundle algorithm using an incrementally updated
+QR algorithm.
+"""
+function build_bundle_wv(
+  f::Function,
+  gradf::Function,
+  y₀::Vector{Float64},
+  η::Float64,
+  min_f::Float64,
+  η_est::Float64,
+)
+  d = length(y₀)
+  bvect = zeros(d)
+  fvals = zeros(d)
+  resid = zeros(d)
+  y = y₀[:]
+  # To obtain a solution equivalent to applying the pseudoinverse, we use the
+  # QR factorization of the transpose of the bundle matrix. This is because the
+  # minimum-norm solution to Ax = b when A is full row rank can be found via the
+  # QR factorization of Aᵀ.
+  copyto!(bvect, gradf(y))
+  fvals[1] = f(y) - min_f + bvect' * (y₀ - y)
+  # Initialize Q and R
+  Q, R = wv_from_vector(bvect)
+  y = y₀ - bvect' \ fvals[1]
+  resid[1] = f(y) - min_f
+  Δ = f(y₀) - min_f
+  # Exit early if solution escaped ball.
+  if norm(y - y₀) > η * Δ
+    return nothing, 1
+  end
+  # Best solution and function value found so far.
+  y_best = y[:]
+  f_best = resid[1]
+  for bundle_idx in 2:d
+    copyto!(bvect, gradf(y))
+    fvals[bundle_idx] = f(y) - min_f + bvect' * (y₀ - y)
+    # Update the QR decomposition of A' after forming [A' bvect].
+    # Q is updated in-place.
+    R = qrinsert_wv!(Q, R, bvect)
+    # Terminate early if rank-deficient.
+    # size(R) = (d, bundle_idx).
+    if R[bundle_idx, bundle_idx] < 1e-15
+      @debug "Stopping (idx=$(bundle_idx)) - reason: diverging"
+      y =
+        y₀ - (Q * R)' \ view(fvals, 1:bundle_idx)
+      return (norm(y - y₀) ≤ η * Δ ? y : y_best), bundle_idx
+    end
+    # Update y by solving the system Q * (inv(R)'fvals).
+    # Cost: O(d * bundle_idx)
+    Rupper = view(R, 1:bundle_idx, 1:bundle_idx)
+    y = y₀ - Q * [(Rupper' \ view(fvals, 1:bundle_idx)); zeros(d - bundle_idx)]
+    resid[bundle_idx] = f(y) - min_f
+    # Terminate early if new point escaped ball around y₀.
+    if (norm(y - y₀) > η * Δ)
+      @debug "Stopping at idx = $(bundle_idx) - reason: diverging"
+      return y_best, bundle_idx
+    end
+    # Terminate early if function value decreased significantly.
+    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
+      return y, bundle_idx
+    end
+    # Otherwise, update best solution so far.
+    if (resid[bundle_idx] < f_best)
+      copyto!(y_best, y)
+      f_best = resid[bundle_idx]
+    end
+  end
+  return y_best, d
+end
 
 """
   build_bundle_qr(f::Function, gradf::Function, y₀::Vector{Float64}, η::Float64, min_f::Float64, η_est::Float64)
@@ -417,7 +484,7 @@ function bundle_newton(
     η = ϵ_distance^(idx)
     bundle_stats = @timed bundle_step, bundle_calls =
       (use_qr_bundle) ? build_bundle_qr(f, gradf, x, η, min_f, η_est) :
-      build_bundle_minres(f, gradf, x, η, min_f, η_est)
+      build_bundle_wv(f, gradf, x, η, min_f, η_est)
     cumul_time += bundle_stats.time - bundle_stats.gctime
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
@@ -428,12 +495,14 @@ function bundle_newton(
     end
     if isnothing(bundle_step) ||
        ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
+      @debug "Bundle step failed (k=$(idx)) -- using fallback algorithm"
       fallback_stats = @timed x, fallback_calls =
         fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
       cumul_time += fallback_stats.time - fallback_stats.gctime
       # Include the number of oracle calls made by the failed bundle step.
       push!(oracle_calls, fallback_calls + bundle_calls)
     else
+      @debug "Bundle step successful (k=$(idx))"
       x = bundle_step[:]
       push!(oracle_calls, bundle_calls)
     end
