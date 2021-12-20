@@ -45,6 +45,7 @@ function run_experiment(
     ϵ_tol = ϵ_tol,
     η_est = η_est,
     η_lb = η_lb,
+    use_qr_bundle = false,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, !no_amortized)
   df_bundle = DataFrame(
