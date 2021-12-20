@@ -18,6 +18,7 @@ function run_experiment(
   ϵ_tol,
   η_est,
   η_lb,
+  bundle_system_solver,
   no_amortized,
   plot_inline,
 )
@@ -47,7 +48,7 @@ function run_experiment(
     end
   end
   @info "Running alternating projections..."
-  _, loss_history_vanilla, oracle_calls_vanilla =
+  _, loss_history_vanilla, oracle_calls_vanilla, elapsed_time_vanilla =
     SuperPolyak.fallback_algorithm(
       loss_fn,
       z -> SuperPolyak.proj_sparse(
@@ -62,10 +63,11 @@ function run_experiment(
     t = 1:length(loss_history_vanilla),
     fvals = loss_history_vanilla,
     cumul_oracle_calls = 0:oracle_calls_vanilla,
+    cumul_elapsed_time = cumsum(elapsed_time_vanilla),
   )
   CSV.write("compressed_sensing_$(m)_$(d)_$(k)_vanilla.csv", df_vanilla)
   @info "Running SuperPolyak..."
-  _, loss_history, oracle_calls, _ = SuperPolyak.bundle_newton(
+  result = SuperPolyak.superpolyak(
     loss_fn,
     grad_fn,
     x_init[:],
@@ -75,17 +77,18 @@ function run_experiment(
     η_est = η_est,
     η_lb = η_lb,
     fallback_alg = alternating_projections_method,
+    bundle_system_solver = bundle_system_solver,
   )
-  cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, !no_amortized)
-  df_bundle = DataFrame(
-    t = 1:length(loss_history),
-    fvals = loss_history,
-    cumul_oracle_calls = cumul_oracle_calls,
+  df_bundle = save_superpolyak_result(
+    "compressed_sensing_$(m)_$(d)_$(k)_bundle.csv",
+    result,
+    no_amortized,
   )
-  CSV.write("compressed_sensing_$(m)_$(d)_$(k)_bundle.csv", df_bundle)
   if plot_inline
-    semilogy(cumul_oracle_calls, loss_history, "bo--")
+    semilogy(df_bundle.cumul_oracle_calls, df_bundle.fvals, "bo--")
     semilogy(0:oracle_calls_vanilla, loss_history_vanilla, "r-")
+    xlabel("Oracle calls")
+    ylabel(L"$ f(x_k) - f^* $")
     legend(["SuperPolyak", "Alternating Projections"])
     show()
   end
@@ -122,6 +125,7 @@ run_experiment(
   args["eps-tol"],
   args["eta-est"],
   args["eta-lb"],
+  args["bundle-system-solver"],
   args["no-amortized"],
   args["plot-inline"],
 )

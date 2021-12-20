@@ -18,6 +18,7 @@ function run_experiment(
   ϵ_tol,
   η_est,
   η_lb,
+  bundle_system_solver,
   no_amortized,
   plot_inline,
 )
@@ -36,7 +37,7 @@ function run_experiment(
   )
   CSV.write("relu_regression_$(m)_$(d)_polyak.csv", df_polyak)
   @info "Running SuperPolyak..."
-  _, loss_history, oracle_calls, elapsed_time_bundle = SuperPolyak.bundle_newton(
+  result = SuperPolyak.superpolyak(
     loss_fn,
     grad_fn,
     z_init,
@@ -45,20 +46,19 @@ function run_experiment(
     ϵ_tol = ϵ_tol,
     η_est = η_est,
     η_lb = η_lb,
-    use_qr_bundle = false,
+    bundle_system_solver = bundle_system_solver,
   )
-  cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, !no_amortized)
-  df_bundle = DataFrame(
-    t = 1:length(loss_history),
-    fvals = loss_history,
-    cumul_oracle_calls = cumul_oracle_calls,
-    cumul_elapsed_time = cumsum(elapsed_time_bundle),
+  df_bundle = save_superpolyak_result( 
+    "relu_regression_$(m)_$(d)_bundle.csv",
+    result,
+    no_amortized,
   )
-  CSV.write("relu_regression_$(m)_$(d)_bundle.csv", df_bundle)
   if plot_inline
-    semilogy(cumul_oracle_calls, loss_history, "bo--")
+    semilogy(df_bundle.cumul_oracle_calls, df_bundle.fvals, "bo--")
     semilogy(0:oracle_calls_polyak, loss_history_polyak, "r--")
     legend(["SuperPolyak", "PolyakSGM"])
+    xlabel("Oracle calls")
+    ylabel(L"$ f(x_k) - f^* $")
     show()
   end
 end
@@ -92,6 +92,7 @@ run_experiment(
   args["eps-tol"],
   args["eta-est"],
   args["eta-lb"],
+  args["bundle-system-solver"],
   args["no-amortized"],
   args["plot-inline"],
 )
