@@ -1,5 +1,6 @@
 module SuperPolyak
 
+import ElasticArrays: ElasticMatrix
 import IterativeSolvers: lsqr!, minres!
 import LinearAlgebra
 import LinearMaps: LinearMap
@@ -328,7 +329,7 @@ function build_bundle_wv(
     fvals[bundle_idx] = f(y) - min_f + bvect' * (y₀ - y)
     # Update the QR decomposition of A' after forming [A' bvect].
     # Q is updated in-place.
-    R = qrinsert_wv!(Q, R, bvect)
+    qrinsert_wv!(Q, R, bvect)
     # Terminate early if rank-deficient.
     # size(R) = (d, bundle_idx).
     if R[bundle_idx, bundle_idx] < 1e-15
