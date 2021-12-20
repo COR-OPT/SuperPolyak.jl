@@ -19,6 +19,26 @@ function get_cumul_oracle_calls(oracle_calls::Vector{Int}, show_amortized::Bool)
   return cumul_oracle_calls
 end
 
+solver_from_string(x) = begin
+  if lowercase(x) == "lsqr"
+    return SuperPolyak.LSQR()
+  elseif lowercase(x) == "incremental_qr_wv"
+    return SuperPolyak.INCREMENTAL_QR_WV()
+  elseif lowercase(x) == "incremental_qr_vanilla"
+    return SuperPolyak.INCREMENTAL_QR_VANILLA()
+  else
+    throw(ErrorException("Unknown bundle system solver $(x)"))
+  end
+end
+
+# Custom parser for bundle system solver type.
+function ArgParse.parse_item(
+  ::Type{SuperPolyak.BundleSystemSolver},
+  input::AbstractString,
+)
+  return solver_from_string(input)
+end
+
 """
   add_base_options(settings::ArgParseSettings)
 
@@ -26,6 +46,12 @@ Add a number of options common to all experiments to the `settings`.
 """
 function add_base_options(settings::ArgParseSettings)
   @add_arg_table! settings begin
+    "--bundle-system-solver"
+    arg_type = SuperPolyak.BundleSystemSolver
+    help =
+      "The bundle system solver to use. One of: LSQR, INCREMENTAL_QR_WV, " *
+      "and INCREMENTAL_QR_VANILLA."
+    default = SuperPolyak.INCREMENTAL_QR_WV()
     "--initial-distance"
     arg_type = Float64
     help = "The normalized initial distance from the solution set."

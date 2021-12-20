@@ -464,6 +464,7 @@ function superpolyak(
   idx = 0
   # Determine the bundle system solver.
   bundle_solver = bundle_func(bundle_system_solver)
+  @info "Using bundle system solver: $(typeof(bundle_system_solver))"
   while true
     cumul_time = 0.0
     η = ϵ_distance^(idx)
