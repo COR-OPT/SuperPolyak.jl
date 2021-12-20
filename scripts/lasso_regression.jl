@@ -46,7 +46,7 @@ function run_experiment(
     end
   end
   @info "Running proximal gradient method..."
-  x_vanilla, loss_history_vanilla, oracle_calls_vanilla =
+  x_vanilla, loss_history_vanilla, oracle_calls_vanilla, elapsed_time_vanilla =
     SuperPolyak.fallback_algorithm(
       loss_fn,
       z -> SuperPolyak.proximal_gradient(problem, z, τ),
@@ -58,10 +58,11 @@ function run_experiment(
     t = 1:length(loss_history_vanilla),
     fvals = loss_history_vanilla,
     cumul_oracle_calls = 0:oracle_calls_vanilla,
+    cumul_elapsed_time = cumsum(elapsed_time_vanilla),
   )
   CSV.write("lasso_$(m)_$(d)_$(r)_vanilla.csv", df_vanilla)
   @info "Running SuperPolyak..."
-  x_bundle, loss_history, oracle_calls, _ = SuperPolyak.bundle_newton(
+  x_bundle, loss_history, oracle_calls, elapsed_time = SuperPolyak.bundle_newton(
     loss_fn,
     grad_fn,
     x_init[:],
@@ -71,12 +72,14 @@ function run_experiment(
     η_est = η_est,
     η_lb = η_lb,
     fallback_alg = proximal_gradient_method,
+    use_qr_bundle = false,
   )
   cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, !no_amortized)
   df_bundle = DataFrame(
     t = 1:length(loss_history),
     fvals = loss_history,
     cumul_oracle_calls = cumul_oracle_calls,
+    cumul_elapsed_time = cumsum(elapsed_time),
   )
   CSV.write("lasso_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
   if plot_inline

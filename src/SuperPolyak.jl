@@ -124,15 +124,19 @@ function fallback_algorithm(
   x = x₀[:]
   oracle_calls = 0
   fvals = [f(x) - min_f]
+  elapsed_time = [0.0]
   while (f(x) - min_f) ≥ ϵ
-    x = A(x)
-    oracle_calls += 1
-    (record_loss) && push!(fvals, f(x) - min_f)
+    stats = @timed begin
+      x = A(x)
+      oracle_calls += 1
+      (record_loss) && push!(fvals, f(x) - min_f)
+    end
+    push!(elapsed_time, stats.time - stats.gctime)
   end
   if (record_loss)
-    return x, fvals, oracle_calls
+    return x, fvals, oracle_calls, elapsed_time
   else
-    return x, oracle_calls
+    return x, oracle_calls, elapsed_time
   end
 end
 
@@ -335,7 +339,7 @@ function build_bundle_wv(
     if R[bundle_idx, bundle_idx] < 1e-15
       @debug "Stopping (idx=$(bundle_idx)) - reason: diverging"
       y =
-        y₀ - (Q * R)' \ view(fvals, 1:bundle_idx)
+        y₀ - Matrix(Q * R)' \ view(fvals, 1:bundle_idx)
       return (norm(y - y₀) ≤ η * Δ ? y : y_best), bundle_idx
     end
     # Update y by solving the system Q * (inv(R)'fvals).
