@@ -1,9 +1,9 @@
 \documentclass{standalone}
 
 % Generate convergence plots using PGFplots and the measurements in .csv format
-% Expected format: .csv with columns named `t`, `fvals`, and `cumul_oracle_calls`.
+% Expected format: .csv with columns named `t`, `fvals`, and `cumul_elapsed_time`.
 % Columns should be comma-separated.
-% Expected filename: `phase_retrieval_$(m)_$(d)_{bundle,polyak.csv}`, where:
+% Expected filename: `relu_regression_$(m)_$(d)_{bundle,polyak.csv}`, where:
 %   1) $(m) is number of measurements;
 %   2) $(d) is problem dimension;
 %   3) `bundle` or `polyak` indicates algorithm used to optimize.
@@ -25,11 +25,11 @@
 
 \begin{document}
 \begin{tikzpicture}% table
-    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
+  \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k)$, ymode=log,
 				 enlargelimits=false, width=3.5in, height=3in,
          legend cell align=left, legend pos=north east,
 				 legend style={nodes={scale=1.0, transform shape}},
-         legend entries={{$d=1000$}, {$d=2500$}, {$d=5000$},
+         legend entries={{$r=2$}, {$r=5$}, {$r=10$},
                          {\texttt{SuperPolyak}},
                          {\texttt{PolyakSGM}}}]
   \addlegendimage{mark=*, very thick, color=lblue};
@@ -37,18 +37,18 @@
   \addlegendimage{mark=triangle*, very thick, color=hblue};
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
-	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_2000_1000_bundle.csv};
-	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_2000_1000_polyak.csv};
-  \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_5000_2500_bundle.csv};
-  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {phase_retrieval_5000_2500_polyak.csv};
-  \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_10000_5000_bundle.csv};
-  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {phase_retrieval_10000_5000_polyak.csv};
+	\addplot[mark=*, very thick, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {max_linear_regression_3000_500_2_bundle.csv};
+	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {max_linear_regression_3000_500_2_polyak.csv};
+  \addplot[mark=square*, very thick, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {max_linear_regression_7500_500_5_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {max_linear_regression_7500_500_5_polyak.csv};
+  \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {max_linear_regression_15000_500_10_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {max_linear_regression_15000_500_10_polyak.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}
