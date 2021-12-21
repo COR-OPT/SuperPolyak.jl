@@ -266,11 +266,19 @@ end
 
 struct CompressedSensingProblem
   A::Matrix{Float64}
+  # Store a factorization to compute projections quickly.
+  F::Factorization{Float64}
   x::Vector{Float64}
   y::Vector{Float64}
   k::Int
 end
 
+"""
+  proj_sparse(x::Vector{Float64}, k::Int)
+
+Project the vector `x` to the cone of `k`-sparse vectors. Modifies
+the original vector `x`.
+"""
 function proj_sparse(x::Vector{Float64}, k::Int)
   x[sortperm(abs.(x), rev = true)[(k+1):end]] .= 0
   return x
@@ -286,40 +294,40 @@ function grad_sparse(x::Vector{Float64}, k::Int)
   return (ds ≤ 1e-15) ? zeros(length(x)) : (x - x₊) / ds
 end
 
-function proj_range(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64})
-  return x + A \ (y - A * x)
+"""
+  proj_range(problem::CompressedSensingProblem, x::Vector{Float64})
+
+For a compressed sensing problem of the form `y = Ax`, where `A` is a
+short matrix, computes the projection of `x` onto the range of `A`.
+"""
+function proj_range(problem::CompressedSensingProblem, x::Vector{Float64})
+  return x + problem.F \ (problem.y - problem.A * x)
 end
 
-function dist_range(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64})
-  return norm(x - proj_range(A, x, y))
+function dist_range(problem::CompressedSensingProblem, x::Vector{Float64})
+  return norm(problem.F \ (problem.y - problem.A * x))
 end
 
-function grad_range(A::Matrix{Float64}, x::Vector{Float64}, y::Vector{Float64})
-  x₊ = proj_range(A, x, y)
-  ds = norm(x₊ - x)
-  return (ds ≤ 1e-15) ? zeros(length(x)) : (x - x₊) / ds
+function grad_range(problem::CompressedSensingProblem, x::Vector{Float64})
+  dx = problem.F \ (problem.y - problem.A * x)
+  ds = norm(dx)
+  return (ds ≤ 1e-15) ? zeros(length(x)) : -dx / ds
 end
 
 function loss(problem::CompressedSensingProblem)
-  A = problem.A
-  y = problem.y
-  k = problem.k
-  m, d = size(A)
-  return z -> dist_sparse(z, k) + dist_range(A, z, y)
+  return z -> dist_sparse(z, problem.k) + dist_range(problem, z)
 end
 
 function subgradient(problem::CompressedSensingProblem)
-  A = problem.A
-  y = problem.y
-  k = problem.k
-  m, d = size(A)
-  return z -> grad_sparse(z, k) + grad_range(A, z, y)
+  return z -> grad_sparse(z, problem.k) + grad_range(problem, z)
 end
 
 function compressed_sensing_problem(m, d, k)
   A = randn(m, d)
+  # Store the pivoted QR factorization for A.
+  F = qr(A, Val(true))
   x = generate_sparse_vector(d, k)
-  return CompressedSensingProblem(A, x, A * x, k)
+  return CompressedSensingProblem(A, F, x, A * x, k)
 end
 
 """

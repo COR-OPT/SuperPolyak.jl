@@ -9,6 +9,7 @@ import SparseArrays
 import StatsBase
 
 const Diagonal = LinearAlgebra.Diagonal
+const Factorization = LinearAlgebra.Factorization
 const givens = LinearAlgebra.givens
 const lmul! = LinearAlgebra.lmul!
 const norm = LinearAlgebra.norm

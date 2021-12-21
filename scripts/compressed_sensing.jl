@@ -13,6 +13,7 @@ function run_experiment(
   m,
   d,
   k,
+  δ,
   ϵ_decrease,
   ϵ_distance,
   ϵ_tol,
@@ -25,7 +26,7 @@ function run_experiment(
   problem = SuperPolyak.compressed_sensing_problem(m, d, k)
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
-  x_init = zeros(d)
+  x_init = SuperPolyak.initializer(problem, δ)
   # Define the fallback method.
   alternating_projections_method(
     loss::Function,
@@ -38,7 +39,7 @@ function run_experiment(
     x = x₀[:]
     while true
       x = SuperPolyak.proj_sparse(
-        SuperPolyak.proj_range(problem.A, x, problem.y),
+        SuperPolyak.proj_range(problem, x),
         k,
       )
       it += 1
@@ -52,7 +53,7 @@ function run_experiment(
     SuperPolyak.fallback_algorithm(
       loss_fn,
       z -> SuperPolyak.proj_sparse(
-        SuperPolyak.proj_range(problem.A, z, problem.y),
+        SuperPolyak.proj_range(problem, z),
         k,
       ),
       x_init[:],
@@ -120,6 +121,7 @@ run_experiment(
   args["m"],
   args["d"],
   args["k"],
+  args["initial-distance"],
   args["eps-decrease"],
   args["eps-distance"],
   args["eps-tol"],
