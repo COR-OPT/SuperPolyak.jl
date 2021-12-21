@@ -19,6 +19,7 @@ function run_experiment(
   ϵ_tol,
   η_est,
   η_lb,
+  bundle_system_solver,
   no_amortized,
   plot_inline,
 )
@@ -26,7 +27,7 @@ function run_experiment(
   loss_fn = SuperPolyak.loss(problem)
   grad_fn = SuperPolyak.subgradient(problem)
   x_init = zeros(d)
-  τ = 0.9 / (opnorm(problem.A)^2)
+  τ = 0.95 / (opnorm(problem.A)^2)
   # Define the fallback method.
   proximal_gradient_method(
     loss::Function,
@@ -62,7 +63,7 @@ function run_experiment(
   )
   CSV.write("lasso_$(m)_$(d)_$(r)_vanilla.csv", df_vanilla)
   @info "Running SuperPolyak..."
-  x_bundle, loss_history, oracle_calls, elapsed_time = SuperPolyak.bundle_newton(
+  result = SuperPolyak.superpolyak(
     loss_fn,
     grad_fn,
     x_init[:],
@@ -72,19 +73,18 @@ function run_experiment(
     η_est = η_est,
     η_lb = η_lb,
     fallback_alg = proximal_gradient_method,
-    use_qr_bundle = false,
+    bundle_system_solver = bundle_system_solver,
   )
-  cumul_oracle_calls = get_cumul_oracle_calls(oracle_calls, !no_amortized)
-  df_bundle = DataFrame(
-    t = 1:length(loss_history),
-    fvals = loss_history,
-    cumul_oracle_calls = cumul_oracle_calls,
-    cumul_elapsed_time = cumsum(elapsed_time),
+  df_bundle = save_superpolyak_result(
+    "lasso_$(m)_$(d)_$(r)_bundle.csv",
+    result,
+    no_amortized,
   )
-  CSV.write("lasso_$(m)_$(d)_$(r)_bundle.csv", df_bundle)
   if plot_inline
-    semilogy(cumul_oracle_calls, loss_history, "bo--")
+    semilogy(df_bundle.cumul_oracle_calls, df_bundle.fvals, "bo--")
     semilogy(loss_history_vanilla, "r--")
+    xlabel("Oracle calls")
+    ylabel(L"$ f(x_k) - f^* $")
     legend(["SuperPolyak", "Proximal Gradient"])
     show()
   end
@@ -123,6 +123,7 @@ run_experiment(
   args["eps-tol"],
   args["eta-est"],
   args["eta-lb"],
+  args["bundle-system-solver"],
   args["no-amortized"],
   args["plot-inline"],
 )
