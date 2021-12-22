@@ -5,7 +5,7 @@ using Printf
 using PyPlot
 using Random
 
-import Hadamard: fwht
+import Hadamard: ifwht
 import ReverseDiff: GradientTape, gradient!, compile
 
 using SuperPolyak
@@ -15,36 +15,31 @@ include("util.jl")
 struct ProblemInstance
   x::Vector{Float64}
   y::Vector{Float64}
-  s::Vector{Float64}
+  S::Matrix{Int}
 end
 
-opA(problem::ProblemInstance, v::Vector{Float64}) = begin
-  m = length(problem.y)
-  s = problem.s
-  return m * (fwht([s .* v; zeros(m - length(s))]))
+function opA(S::Matrix{Int}, v::AbstractVector{Float64})
+  return vec(ifwht(S .* v, 1))
 end
 
-opAT(problem::ProblemInstance, v::Vector{Float64}) = begin
-  m = length(problem.y)
-  d = length(problem.s)
-  s = problem.s
-  return s .* (m .* (fwht(v)[1:d]))
+function opAT(S::Matrix{Int}, v::AbstractVector{Float64})
+  d, k = size(S)
+  return (S .* ifwht(reshape(v, d, k), 1)) * ones(k)
 end
 
 function loss(problem::ProblemInstance)
   y = problem.y
   m = length(y)
-  return z -> (1 / m) * norm(abs.(opA(problem, z)) - problem.y, 1)
+  return z -> (1 / m) * norm(max.(opA(problem.S, z), 0.0) .- y, 1)
 end
 
 function grad(problem::ProblemInstance)
   y = problem.y
-  s = problem.s
+  S = problem.S
   m = length(y)
-  d = length(s)
   grad_fn(z) = begin
-    Ax = opA(problem, z)
-    return (1 / m) * opAT(problem, sign.(abs.(Ax) .- y) .* sign.(Ax))
+    Ax = opA(S, z)
+    return (1 / m) * opAT(S, sign.(max.(Ax, 0.0) .- y) .* (Ax .≥ 0))
   end
   return grad_fn
 end
@@ -54,16 +49,16 @@ function initializer(problem::ProblemInstance, δ::Float64)
   return problem.x + δ * normalize(randn(d))
 end
 
-function problem_instance(m, d)
-  s = rand([-1, 1], d)
+function problem_instance(d, k)
+  S = rand([-1, 1], d, k)
   x = normalize(randn(d))
-  y = abs.(m .* fwht([s .* x; zeros(m - d)]))
-  return ProblemInstance(x, y, s)
+  y = max.(opA(S, x), 0.0)
+  return ProblemInstance(x, y, S)
 end
 
 function run_experiment(
-  m,
   d,
+  k,
   δ,
   ϵ_decrease,
   ϵ_distance,
@@ -74,10 +69,10 @@ function run_experiment(
   no_amortized,
   run_subgradient,
 )
-  problem = problem_instance(m, d)
+  problem = problem_instance(d, k)
   loss_fn = loss(problem)
   grad_fn = grad(problem)
-  z = initializer(problem, 0.5)
+  z = initializer(problem, 0.9)
   if run_subgradient
     @info "Running subgradient method..."
     _, loss_history_polyak, oracle_calls_polyak, elapsed_time_polyak =
@@ -88,7 +83,7 @@ function run_experiment(
       cumul_oracle_calls = 0:oracle_calls_polyak,
       cumul_elapsed_time = cumsum(elapsed_time_polyak),
     )
-    CSV.write("pr_large_$(m)_$(d)_polyak.csv", df_polyak)
+    CSV.write("pr_large_$(d)_$(k)_polyak.csv", df_polyak)
   else
     @info "Running SuperPolyak..."
     result = SuperPolyak.superpolyak(
@@ -103,7 +98,7 @@ function run_experiment(
       bundle_system_solver = bundle_system_solver,
     )
     df_bundle = save_superpolyak_result(
-      "pr_large_$(m)_$(d)_bundle.csv",
+      "pr_large_$(d)_$(k)_bundle.csv",
       result,
       no_amortized,
     )
@@ -119,10 +114,10 @@ settings = add_base_options(settings)
   arg_type = Int
   help = "The dimension of the unknown signal."
   default = 300
-  "--m"
+  "--k"
   arg_type = Int
-  help = "The number of measurements."
-  default = 1024
+  help = "The number of random binary masks."
+  default = 3
   "--run-subgradient"
   help = "Set to run the subgradient method."
   action = :store_true
@@ -131,8 +126,8 @@ end
 args = parse_args(settings)
 Random.seed!(args["seed"])
 run_experiment(
-  args["m"],
   args["d"],
+  args["k"],
   args["initial-distance"],
   args["eps-decrease"],
   args["eps-distance"],
