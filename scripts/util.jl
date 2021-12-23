@@ -157,3 +157,15 @@ function save_superpolyak_result(
   CSV.write(name, df_bundle)
   return df_bundle
 end
+
+"""
+  generate_conditioned_matrix(d::Int, r::Int, κ::Float64)
+
+Generate a `d × r` with condition number κ and unit Frobenius
+norm.
+"""
+function generate_conditioned_matrix(d::Int, r::Int, κ::Float64)
+  X = Matrix(qr(randn(d, r)).Q)
+  Σ = Diagonal(range(1, κ, length=r))
+  return (X * Σ) / norm(Σ)
+end

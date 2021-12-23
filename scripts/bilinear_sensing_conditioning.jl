@@ -10,17 +10,6 @@ import SuperPolyak
 
 include("util.jl")
 
-"""
-  generate_conditioned_matrix(d::Int, r::Int, κ::Float64)
-
-Generate a `d × r` with condition number κ and unit Frobenius
-norm.
-"""
-function generate_conditioned_matrix(d::Int, r::Int, κ::Float64)
-  X = Matrix(qr(randn(d, r)).Q)
-  Σ = Diagonal(range(1, κ, length=r))
-  return (X * Σ) / norm(Σ)
-end
 
 function generate_problem(m::Int, d::Int, r::Int, κ::Int)
   L = randn(m, d)
