@@ -359,44 +359,21 @@ struct RobustPCAProblem
 end
 
 """
-  proj_sparse!(m::Int, n::Int, α::Float64, Svec::AbstractVector{Float64})
+  proj_sparse!(α::Float64, Svec::AbstractVector{Float64})
 
-Compute the (approximate) projection of `Svec` onto the set of row-and-column
-sparse matrices of size `m × n` with at most `α` fraction nonzero elements.
-`Svec` is modified in-place.
+Compute the projection of `Svec` onto the set of sparse matrices of size
+`m × n` with at most `α` fraction nonzero elements. `Svec` is modified inplace.
 """
-function proj_sparse!(
-  m::Int,
-  n::Int,
-  α::Float64,
-  Svec::AbstractVector{Float64},
-)
-  # Reshape Svec into `m × n` matrix.
-  S = reshape(view(Svec, :), m, n)
-  # Compute [αm]-largest element of each column.
-  ind_col = Int(ceil(α * m))
-  col_max = mapslices(
-    z -> abs.(z)[partialsortperm(abs.(z), 1:ind_col, rev=true)[end]],
-    S,
-    dims = 1,
-  )
-  # Compute [αn]-largest element of each row.
-  ind_row = Int(ceil(α * n))
-  row_max = mapslices(
-    z -> abs.(z)[partialsortperm(abs.(z), 1:ind_row, rev=true)[end]],
-    S,
-    dims = 2,
-  )
-  # Compute binary mask by ANDing the conditions for identifying
-  # the top α-fraction in every row and column.
-  M = (abs.(S) .≥ row_max) .& (abs.(S) .≥ col_max)
-  # Zero out all elements on the complement of the mask.
-  @. S[!M] = 0.0
+function proj_sparse!(α::Float64, Svec::AbstractVector{Float64})
+  n = length(Svec)
+  ind_max = Int(ceil(α * n))
+  elt_max = abs.(Svec)[partialsortperm(abs.(Svec), 1:ind_max, rev=true)[end]]
+  Svec[abs.(Svec) .< elt_max] .= 0.0
   return Svec
 end
 
 function proj_sparse!(problem::RobustPCAProblem, Svec::AbstractVector{Float64})
-  return proj_sparse!(problem.m, problem.n, problem.α, Svec)
+  return proj_sparse!(problem.α, Svec)
 end
 
 """
@@ -407,7 +384,7 @@ Create a random robust PCA problem.
 function robust_pca_problem(m::Int, n::Int, r::Int, α::Float64)
   Lvec = vec(randn(m, r) * randn(r, n))
   Svec = 100.0 .* randn(m * n)
-  proj_sparse!(m, n, α, Svec)
+  proj_sparse!(α, Svec)
   return RobustPCAProblem(Lvec + Svec, Lvec, sparse(Svec), r, m, n, α)
 end
 
