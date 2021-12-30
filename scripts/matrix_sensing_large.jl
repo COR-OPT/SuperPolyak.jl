@@ -6,7 +6,6 @@ using PyPlot
 using Random
 
 import Hadamard: ifwht
-import ReverseDiff: GradientTape, gradient!, compile
 
 using SuperPolyak
 
@@ -73,7 +72,6 @@ where `Sᵢ` is the diagonal matrix formed by the `i`-th column of `S`,
 function opAT(S::Matrix{Int}, V::AbstractMatrix{Float64})
   d, k = size(S)
   m, r = size(V)
-  @assert (m == d * k) "Incompatible binary mask size!"
   # Product [S_1 H, ..., S_k H] * [V_1; ... V_k]
   ATV = reshape(S, (d, 1, k)) .* (
     ifwht(permutedims(reshape(V', r, d, k), [2, 1, 3]), 1)
@@ -87,10 +85,13 @@ function loss(problem::ProblemInstance)
   S₁ = problem.S₁
   S₂ = problem.S₂
   d, r = size(problem.W)
+  # Preallocate W and X matrices.
+  W = zeros(d, r)
+  X = zeros(d, r)
   loss_fn(z) = begin
     # Separate the components.
-    W = reshape(view(z, 1:(d*r)), d, r)
-    X = reshape(view(z, (d*r + 1):(2*d*r)), d, r)
+    copyto!(W, 1, z, 1, d * r)
+    copyto!(X, 1, z, (d * r + 1), d * r)
     # Compute row-wise product.
     return (1 / m) * norm(
       y .- sum(opA(S₁, W) .* opA(S₂, X), dims=2)[:],
@@ -112,19 +113,34 @@ function subgradient(problem::ProblemInstance)
   S₁ = problem.S₁
   S₂ = problem.S₂
   d, r = size(problem.W)
+  # Preallocate subgradient vector.
+  gvec = zeros(2 * d * r)
+  # Preallocate W and X matrices.
+  W = zeros(d, r)
+  X = zeros(d, r)
   grad_fn(z) = begin
     # Separate the components.
-    W = reshape(view(z, 1:(d*r)), d, r)
-    X = reshape(view(z, (d*r + 1):(2*d*r)), d, r)
+    copyto!(
+      W,        # dest
+      1,        # dest_offset
+      z,        # src
+      1,        # src_offset
+      d*r,      # N
+    )
+    copyto!(
+      X,        # dest
+      1,        # dest_offset
+      z,        # src
+      (d*r+1),  # src_offset
+      d*r,    # N
+    )
     # LW = [H S_1 W; ... H S_k W]. Similarly for RX.
     LW = opA(S₁, W)
     RX = opA(S₂, X)
     sg = sign.(sum(LW .* RX, dims=2)[:] .- y)
-    return (1 / m) *
-      [
-        vec(opAT(S₁, sg .* RX));    # Gradient w.r.t. W
-        vec(opAT(S₂, sg .* LW))    # Gradient w.r.t. X
-      ]
+    gvec[1:(d * r)] = (1 / m) * vec(opAT(S₁, sg .* RX))
+    gvec[(d*r+1):end] = (1 / m) * vec(opAT(S₂, sg .* LW))
+    return gvec
   end
   return grad_fn
 end
