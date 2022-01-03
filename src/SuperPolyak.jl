@@ -5,6 +5,7 @@ import ElasticArrays: ElasticMatrix
 import IterativeSolvers: lsqr!, minres!
 import LinearAlgebra
 import LinearMaps: LinearMap
+import QPSReader: readqps
 import ReverseDiff: GradientTape, gradient!, compile
 import SparseArrays: nnz, sparse, SparseMatrixCSC, SparseVector, spzeros
 import StatsBase: sample
@@ -19,6 +20,7 @@ const normalize! = LinearAlgebra.normalize!
 const opnorm = LinearAlgebra.opnorm
 const qr = LinearAlgebra.qr
 const rank = LinearAlgebra.rank
+const tril = LinearAlgebra.tril
 const UpperTriangular = LinearAlgebra.UpperTriangular
 
 # An abstract type encoding an optimization problem. All concrete problem
@@ -253,6 +255,8 @@ function build_bundle_wv(
   # Best solution and function value found so far.
   y_best = y[:]
   f_best = resid[1]
+  # Right-hand side for update
+  qr_rhs = zeros(d)
   for bundle_idx in 2:d
     copyto!(bvect, gradf(y))
     fvals[bundle_idx] = f(y) - min_f + bvect' * (y₀ - y)
@@ -270,7 +274,8 @@ function build_bundle_wv(
     # Update y by solving the system Q * (inv(R)'fvals).
     # Cost: O(d * bundle_idx)
     Rupper = view(R, 1:bundle_idx, 1:bundle_idx)
-    y = y₀ - Q * [(Rupper' \ view(fvals, 1:bundle_idx)); zeros(d - bundle_idx)]
+    qr_rhs[1:bundle_idx] = Rupper' \ fvals[1:bundle_idx]
+    y = y₀ - Q * qr_rhs
     resid[bundle_idx] = f(y) - min_f
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * Δ)
@@ -479,6 +484,9 @@ function superpolyak(
     if isnothing(bundle_step) ||
        ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
       @debug "Bundle step failed (k=$(idx)) -- using fallback algorithm"
+      if !isnothing(bundle_step) && f(bundle_step) < f(x)
+        copyto!(x, bundle_step)
+      end
       fallback_stats = @timed x, fallback_calls =
         fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
       cumul_time += fallback_stats.time - fallback_stats.gctime
@@ -487,7 +495,7 @@ function superpolyak(
       push!(step_types, "FALLBACK")
     else
       @debug "Bundle step successful (k=$(idx))"
-      x = bundle_step[:]
+      copyto!(x, bundle_step)
       push!(oracle_calls, bundle_calls)
       push!(step_types, "BUNDLE")
     end

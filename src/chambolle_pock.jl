@@ -1,42 +1,61 @@
-struct LinearProgramStandardForm
-  A::Matrix{Float64}
-  b::Vector{Float64}
-  c::Vector{Float64}
-  x::Vector{Float64}
-end
-
-"""
-  LinearProgramTwoSided
-
-A linear program with equality constraints `Ax = b` and two-sided inequality
-constraints `ℓ ≤ x ≤ u`.
-"""
-struct LinearProgramTwoSided
-  A::Union{Matrix{Float64},SparseMatrixCSC{Float64,Int64}}
+struct QuadraticProgram
+  A::AbstractMatrix{Float64}
+  P::AbstractMatrix{Float64}
   b::Vector{Float64}
   c::Vector{Float64}
   l::Vector{Float64}
   u::Vector{Float64}
 end
 
-const LinearProgram = Union{LinearProgramStandardForm,LinearProgramTwoSided}
-
-chambolle_pock_default_tau(problem::LinearProgram) = 0.9 / opnorm(problem.A)
+struct StepSize
+  τ::Float64
+  σ::Float64
+end
 
 """
-  seminorm(problem::LinearProgram, z::Vector{Float64}, τ::Float64 = chambolle_pock_default_tau(problem))
+  spectral_norm(A::AbstractMatrix{Float64})
 
-Compute the Chambolle-Pock seminorm using stepsize `τ` at `z`.
+Compute the spectral norm of `A`. If `A` is a sparse matrix, uses `svds` to
+compute the top singular value.
+"""
+function spectral_norm(A::AbstractMatrix{Float64})
+  if A isa SparseMatrixCSC
+    svd_obj, = svds(A, nsv = 1, ritzvec = false)
+    return maximum(svd_obj.S)
+  else
+    return opnorm(A)
+  end
+end
+
+"""
+  default_stepsize(problem::QuadraticProgram)
+
+Compute a pair of default stepsizes for the Condat-Vu algorithm applied to
+solve a `QuadraticProgram`.
+"""
+function default_stepsize(problem::QuadraticProgram)
+  σ = 0.9 / spectral_norm(problem.A)
+  τ = 1 / (0.5 * spectral_norm(problem.P) + (1 / σ))
+  return StepSize(τ, σ)
+end
+
+"""
+  seminorm(problem::QuadraticProgram, z::Vector{Float64}, step::StepSize= default_stepsize(problem))
+
+Compute the Chambolle-Pock seminorm using stepsize `step` at `z`.
 """
 function seminorm(
-  problem::LinearProgram,
+  problem::QuadraticProgram,
   z::Vector{Float64},
-  τ::Float64 = chambolle_pock_default_tau(problem),
+  step::StepSize = default_stepsize(problem),
 )
   m, d = size(problem.A)
+  τ, σ = step.τ, step.σ
   x = z[1:d]
   y = z[(d+1):end]
-  return sqrt((1 / τ) * (norm(x)^2 + norm(y)^2) - 2 * y' * (problem.A * x))
+  return sqrt(
+    (1 / τ) * (norm(x)^2) + (1 / σ) * (norm(y)^2) - 2 * y' * (problem.A * x)
+  )
 end
 
 """
@@ -48,87 +67,102 @@ function proj_box(z::Vector{Float64}, l::Vector{Float64}, u::Vector{Float64})
   return max.(min.(z, u), l)
 end
 
-"""
-  chambolle_pock(problem::LinearProgram, z::Vector{Float64}, τ::Float64 = chambolle_pock_default_tau(problem))
-
-Run a step of the Chambolle-Pock algorithm to solve the LP `problem` at
-`z` with stepsize `τ`.
-"""
-function chambolle_pock(
-  problem::LinearProgram,
+function chambolle_pock_iteration(
+  problem::QuadraticProgram,
   z::Vector{Float64},
-  τ::Float64 = chambolle_pock_default_tau(problem),
+  step::StepSize = default_stepsize(problem),
 )
-  A = problem.A
-  b = problem.b
-  c = problem.c
-  m, d = size(A)
+  m, d = size(problem.A)
+  τ, σ = step.τ, step.σ
   x = z[1:d]
   y = z[(d+1):end]
-  l = (problem isa LinearProgramTwoSided) ? problem.l : zeros(d)
-  u = (problem isa LinearProgramTwoSided) ? problem.u : fill(Inf, d)
+  Ax = problem.A * x
+  Px = problem.P * x
   return [
-    proj_box(x + τ * (A' * (y - 2τ * (A * x - b)) - c), l, u)
-    y - τ * (A * x - b)
+    proj_box(
+      x - τ * (Px + problem.c + problem.A' * (y + 2σ * (Ax - problem.b))),
+      problem.l,
+      problem.u,
+    );
+    y + σ * (Ax - problem.b)
   ]
 end
 
 """
-  loss(problem::LinearProgram, τ::Float64 = chambolle_pock_default_tau(problem))
+  chambolle_pock_loss(problem::QuadraticProgram, step::StepSize) -> Function
 
-Return a callable implementing the loss for a linear programming problem, which
-is the residual measured in the Chambolle-Pock seminorm:
-
-  |M^{1/2} (z - T(z))|,   where   M = [(1/τ)I -A'; -A (1/τ)I].
+Return a callable that computes the residual of one iteration of Chambolle-Pock
+applied to `problem` with step size `step`.
 """
-function loss(
-  problem::LinearProgram,
-  τ::Float64 = chambolle_pock_default_tau(problem),
-)
-  return z -> seminorm(problem, z - chambolle_pock(problem, z, τ), τ)
-end
-
-"""
-  subgradient(problem::LinearProgram, τ::Float64 = chambolle_pock_default_tau(problem))
-
-Return callable implementing the subgradient of `loss(problem, τ)`.
-"""
-function subgradient(
-  problem::LinearProgram,
-  τ::Float64 = chambolle_pock_default_tau(problem),
+function chambolle_pock_loss(
+  problem::QuadraticProgram,
+  step::StepSize = default_stepsize(problem),
 )
   A = problem.A
+  P = problem.P
   b = problem.b
   c = problem.c
+  l = problem.l
+  u = problem.u
+  τ, σ = step.τ, step.σ
   m, d = size(A)
-  l = (problem isa LinearProgramTwoSided) ? problem.l : zeros(d)
-  u = (problem isa LinearProgramTwoSided) ? problem.u : fill(Inf, d)
-  # Membership function for generalized jacobian of projection.
-  member_fn(x) = @. (x ≥ l) & (x ≤ u)
-  # Matrix M inducing the Chambolle-Pock seminorm.
-  # Convert to sparse matrix to accelerate computation.
-  M = sparse([(1/τ)*LinearAlgebra.I -A'; -A (1/τ)*LinearAlgebra.I])
-  G(z) = begin
+  x = zeros(d)
+  y = zeros(m)
+  loss_fn(z) = begin
     x = z[1:d]
     y = z[(d+1):end]
-    r = z - chambolle_pock(problem, z, τ)
-    q =
-      (seminorm(problem, r, τ) ≤ 1e-15) ? zeros(length(z)) :
-      (M * r / seminorm(problem, r, τ))
-    D = Diagonal([
-      member_fn(x + τ * (A' * (y - 2τ * (A * x - b)) - c))
-      ones(m)
-    ])
-    return q - [LinearAlgebra.I-2*τ^2*A'A -τ*A'; τ*A LinearAlgebra.I] * (D * q)
+    Ax = A * x
+    x_diff = x - max.(
+      l,
+      min.(u, x - τ * (P * x + c + A' * (y + 2σ * (Ax - b)))),
+    )
+    y_diff = σ * (b - Ax)
+    return sqrt(
+      (1 / τ) * norm(x_diff)^2 + (1 / σ) * norm(y_diff)^2 -
+      2 * y_diff' * A * x_diff
+    )
   end
-  return G
+  return loss_fn
 end
 
-function random_linear_program(m::Int, d::Int)
-  # 0-1 constraint matrix
-  A = rand([0, 1], m, d)
-  c = randn(d)
-  x = max.(0, randn(d))
-  b = A * x
-  return LinearProgramStandardForm(A, b, c, x)
+"""
+  chambolle_pock_subgradient(problem::QuadraticProgram, step::StepSize) -> Function
+
+Return a callable that computes a subgradient of the Chambolle-Pock residual
+for `problem` with step size `step`.
+"""
+function chambolle_pock_subgradient(
+  problem::QuadraticProgram,
+  step::StepSize = default_stepsize(problem),
+)
+  m, d = size(problem.A)
+  compiled_loss_tape = compile(GradientTape(chambolle_pock_loss(problem, step), randn(m + d)))
+  return z -> gradient!(compiled_loss_tape, z)
+end
+
+"""
+  read_problem_from_qps_file(filename::String) -> QuadraticProgram
+
+Read a quadratic programming problem from a .QPS file and convert it to a
+`QuadraticProgram` struct. Assumes that the input problem has equality
+constraints of the form Ax = b.
+"""
+function read_problem_from_qps_file(filename::String, mpsformat=:fixed)
+  problem = readqps(filename, mpsformat=mpsformat)
+  m, n = problem.ncon, problem.nvar
+  # The objective matrix is symmetric and the .QPS file gives
+  # the lower-triangular part only.
+  P = sparse(problem.qrows, problem.qcols, problem.qvals, n, n)
+  P = P + tril(P, 1)'
+  A = sparse(problem.arows, problem.acols, problem.avals, m, n)
+  b = problem.ucon
+  @assert norm(problem.lcon - problem.ucon, Inf) ≤ 1e-15 "Cannot convert to equality form"
+  return QuadraticProgram(
+    A,
+    P,
+    problem.ucon,
+    problem.c,
+    problem.lvar,
+    problem.uvar,
+  )
 end
