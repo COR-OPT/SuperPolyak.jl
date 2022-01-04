@@ -162,8 +162,8 @@ function kkt_error(problem::QuadraticProgram)
     gap = abs(x'Px + c'x + b'y + min.(λ, 0.0)' * u_finite - max.(λ, 0.0)' * l_finite)
     # Primal residual
     pri_res = norm(Ax - b) + norm(max.(x - u, 0.0)) + norm(max.(l - x, 0.0))
-    # Dual residual
-    dua_res = norm(min.(λ .* pos_ind, 0.0)) + norm(max.(λ .* neg_ind, 0.0)) + norm(λ .* nul_ind)
+    # Dual residual |λ - P_{Λ}(λ)|
+    dua_res = norm(max.(λ .* pos_ind, 0.0)) + norm(min.(λ .* neg_ind, 0.0)) + norm(λ .* nul_ind)
     return gap + pri_res + dua_res
   end
   return loss_fn
