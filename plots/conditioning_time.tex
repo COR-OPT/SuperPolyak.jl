@@ -26,12 +26,12 @@
 
 \begin{document}
 \begin{tikzpicture}% table
-    \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k)$, ymode=log,
+    \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k) - f^*$, ymode=log,
                  width=3.5in, height=3in, xmax=100,
                  enlargelimits=false,
                  legend cell align=left, legend pos=south east,
                  legend style={nodes={scale=1.0, transform shape}},
-                 legend entries={{$\kappa = 1$}, {$\kappa = 10$}, {$\kappa = 100$},
+                 legend entries={{$\tilde{\kappa} = 1$}, {$\tilde{\kappa} = 10$}, {$\tilde{\kappa} = 100$},
                                  {\texttt{SuperPolyak}},
                                  {\texttt{PolyakSGM}}}]
   \addlegendimage{mark=*, very thick, color=lblue};
