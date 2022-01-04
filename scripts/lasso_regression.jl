@@ -24,10 +24,11 @@ function run_experiment(
   plot_inline,
 )
   problem = SuperPolyak.lasso_problem(m, d, r, 0.1)
-  loss_fn = SuperPolyak.loss(problem)
-  grad_fn = SuperPolyak.subgradient(problem)
-  x_init = zeros(d)
+  # Use same τ for loss and fallback method
   τ = 0.95 / (opnorm(problem.A)^2)
+  loss_fn = SuperPolyak.loss(problem, τ)
+  grad_fn = SuperPolyak.subgradient(problem, τ)
+  x_init = zeros(d)
   # Define the fallback method.
   proximal_gradient_method(
     loss::Function,

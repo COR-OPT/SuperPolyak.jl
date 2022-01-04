@@ -40,17 +40,17 @@
   \addlegendimage{no markers, very thick, solid};
   \addlegendimage{no markers, very thick, dashed};
 	\addplot[mark=*, very thick, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_150_1000_10_bundle.csv};
+    {./lasso_100_1000_10_bundle.csv};
 	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_150_1000_10_vanilla.csv};
+    {./lasso_100_1000_10_vanilla.csv};
   \addplot[mark=square*, very thick, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_375_2500_25_bundle.csv};
+    {./lasso_250_2500_25_bundle.csv};
   \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_oracle_calls,y=fvals,col sep=comma]
-    {./lasso_375_2500_25_vanilla.csv};
+    {./lasso_250_2500_25_vanilla.csv};
   \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./lasso_750_5000_50_bundle.csv};
+    {./lasso_500_5000_50_bundle.csv};
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
-    {./lasso_750_5000_50_vanilla.csv};
+    {./lasso_500_5000_50_vanilla.csv};
 	\end{axis}
 \end{tikzpicture}
 \end{document}
