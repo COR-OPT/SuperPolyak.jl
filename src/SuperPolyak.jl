@@ -185,7 +185,8 @@ function build_bundle_lsqr(
   dy = y - y₀
   for bundle_idx in 2:d
     append!(bmtrx, gradf(y))
-    fvals[bundle_idx] = f(y) - min_f + bmtrx[:, bundle_idx]' * (y₀ - y)
+    # Invariant: resid[bundle_idx - 1] = f(y) - min_f.
+    fvals[bundle_idx] = resid[bundle_idx - 1] + bmtrx[:, bundle_idx]' * (y₀ - y)
     At = view(bmtrx, :, 1:bundle_idx)
     lsqr!(
       dy,
@@ -204,7 +205,7 @@ function build_bundle_lsqr(
       return y_best, bundle_idx
     end
     # Terminate early if function value decreased significantly.
-    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
+    if (Δ < 0.5) && (resid[bundle_idx] < Δ^(1 + η_est))
       return y, bundle_idx
     end
     # Otherwise, update best solution so far.
@@ -253,16 +254,19 @@ function build_bundle_wv(
   # Best solution and function value found so far.
   y_best = y[:]
   f_best = resid[1]
+  # Cache right-hand side vector.
+  qr_rhs = zero(y)
   for bundle_idx in 2:d
     copyto!(bvect, gradf(y))
-    fvals[bundle_idx] = f(y) - min_f + bvect' * (y₀ - y)
+    # Invariant: resid[bundle_idx - 1] = f(y) - min_f.
+    fvals[bundle_idx] = resid[bundle_idx - 1] + bvect' * (y₀ - y)
     # Update the QR decomposition of A' after forming [A' bvect].
     # Q is updated in-place.
     qrinsert_wv!(Q, R, bvect)
     # Terminate early if rank-deficient.
     # size(R) = (d, bundle_idx).
     if R[bundle_idx, bundle_idx] < 1e-15
-      @debug "Stopping (idx=$(bundle_idx)) - reason: diverging"
+      @debug "Stopping (idx=$(bundle_idx)) - reason: rank-deficient A"
       y =
         y₀ - Matrix(Q * R)' \ view(fvals, 1:bundle_idx)
       return (norm(y - y₀) ≤ η * Δ ? y : y_best), bundle_idx
@@ -270,7 +274,8 @@ function build_bundle_wv(
     # Update y by solving the system Q * (inv(R)'fvals).
     # Cost: O(d * bundle_idx)
     Rupper = view(R, 1:bundle_idx, 1:bundle_idx)
-    y = y₀ - Q * [(Rupper' \ view(fvals, 1:bundle_idx)); zeros(d - bundle_idx)]
+    qr_rhs[1:bundle_idx] = Rupper' \ fvals[1:bundle_idx]
+    y = y₀ - Q * qr_rhs
     resid[bundle_idx] = f(y) - min_f
     # Terminate early if new point escaped ball around y₀.
     if (norm(y - y₀) > η * Δ)
@@ -278,7 +283,7 @@ function build_bundle_wv(
       return y_best, bundle_idx
     end
     # Terminate early if function value decreased significantly.
-    if (Δ < 0.5) && ((f(y) - min_f) < Δ^(1 + η_est))
+    if (Δ < 0.5) && (resid[bundle_idx] < Δ^(1 + η_est))
       return y, bundle_idx
     end
     # Otherwise, update best solution so far.
@@ -465,22 +470,25 @@ function superpolyak(
   @info "Using bundle system solver: $(typeof(bundle_system_solver))"
   while true
     cumul_time = 0.0
+    Δ = fvals[end]
     η = ϵ_distance^(idx)
     bundle_stats = @timed bundle_step, bundle_calls =
       bundle_solver(f, gradf, x, η, min_f, η_est)
     cumul_time += bundle_stats.time - bundle_stats.gctime
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
-       ((f(bundle_step) - min_f) > (f(x) - min_f)^(1 + η_est)) &&
-       ((f(x) - min_f) < 0.5)
+       ((f(bundle_step) - min_f) > Δ^(1 + η_est)) && (Δ < 0.5)
       η_est = max(η_est * 0.9, η_lb)
       @debug "Adjusting η_est = $(η_est)"
     end
     if isnothing(bundle_step) ||
-       ((f(bundle_step) - min_f) > ϵ_decrease * (f(x) - min_f))
+       ((f(bundle_step) - min_f) > ϵ_decrease * Δ)
       @debug "Bundle step failed (k=$(idx)) -- using fallback algorithm"
+      if (!isnothing(bundle_step)) && ((f(bundle_step) - min_f) < Δ)
+        copyto!(x, bundle_step)
+      end
       fallback_stats = @timed x, fallback_calls =
-        fallback_alg(f, gradf, x, ϵ_decrease * f(x), min_f)
+        fallback_alg(f, gradf, x, ϵ_decrease * (f(x) - min_f), min_f)
       cumul_time += fallback_stats.time - fallback_stats.gctime
       # Include the number of oracle calls made by the failed bundle step.
       push!(oracle_calls, fallback_calls + bundle_calls)
