@@ -126,6 +126,61 @@ function chambolle_pock_loss(
 end
 
 """
+  kkt_error(problem::QuadraticProgram)
+
+Return a callable that computes the KKT error of a `QuadraticProgram`.
+"""
+function kkt_error(problem::QuadraticProgram)
+  A = problem.A
+  P = problem.P
+  b = problem.b
+  c = problem.c
+  l = problem.l
+  u = problem.u
+  m, d = size(A)
+  finite_l_ind = isfinite.(l)
+  finite_u_ind = isfinite.(u)
+  l_finite = zeros(d)
+  u_finite = zeros(d)
+  @. l_finite[finite_l_ind] = l[finite_l_ind]
+  @. u_finite[finite_u_ind] = u[finite_u_ind]
+  # Indices where λ = Px + c + A'y should be positive, negative
+  # and zero, respectively.
+  pos_ind = @. finite_l_ind & !finite_u_ind
+  neg_ind = @. finite_u_ind & !finite_l_ind
+  nul_ind = @. !(finite_l_ind | finite_u_ind)
+  x = zeros(d)
+  y = zeros(m)
+  loss_fn(z) = begin
+    x = z[1:d]
+    y = z[(d+1):end]
+    Ax = A * x
+    Px = P * x
+    # Parameter λ
+    λ = Px + c + A'y
+    # Duality gap
+    gap = abs(x'Px + c'x + b'y + min.(λ, 0.0)' * u_finite - max.(λ, 0.0)' * l_finite)
+    # Primal residual
+    pri_res = norm(Ax - b) + norm(max.(x - u, 0.0)) + norm(max.(l - x, 0.0))
+    # Dual residual
+    dua_res = norm(min.(λ .* pos_ind, 0.0)) + norm(max.(λ .* neg_ind, 0.0)) + norm(λ .* nul_ind)
+    return gap + pri_res + dua_res
+  end
+  return loss_fn
+end
+
+"""
+  kkt_error_subgradient(problem::QuadraticProgram)
+
+Return a callable that computes a subgradient of the KKT error of a `QuadraticProgram`.
+"""
+function kkt_error_subgradient(problem::QuadraticProgram)
+  m, d = size(problem.A)
+  compiled_loss_tape = compile(GradientTape(kkt_error(problem), randn(m + d)))
+  return z -> gradient!(compiled_loss_tape, z)
+end
+
+"""
   chambolle_pock_subgradient(problem::QuadraticProgram, step::StepSize) -> Function
 
 Return a callable that computes a subgradient of the Chambolle-Pock residual
