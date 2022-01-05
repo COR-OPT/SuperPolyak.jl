@@ -83,7 +83,7 @@ function run_experiment(
       cumul_oracle_calls = 0:oracle_calls_polyak,
       cumul_elapsed_time = cumsum(elapsed_time_polyak),
     )
-    CSV.write("pr_large_$(d)_$(k)_polyak.csv", df_polyak)
+    CSV.write("relu_large_$(d)_$(k)_polyak.csv", df_polyak)
   else
     @info "Running SuperPolyak..."
     result = SuperPolyak.superpolyak(
@@ -98,7 +98,7 @@ function run_experiment(
       bundle_system_solver = bundle_system_solver,
     )
     df_bundle = save_superpolyak_result(
-      "pr_large_$(d)_$(k)_bundle.csv",
+      "relu_large_$(d)_$(k)_bundle.csv",
       result,
       no_amortized,
     )
