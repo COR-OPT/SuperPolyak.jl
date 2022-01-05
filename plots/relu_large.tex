@@ -24,12 +24,17 @@
 \usepackage{tikz,pgfplots}
 \usepackage{xfrac}
 
+\pgfplotsset{compat=1.14}
+\pgfplotsset{xticklabel style={text height=1em, align=center}}
+\pgfplotsset{xtick style={text height=1em, align=center}}
+
 \begin{document}
-\begin{minipage}{3.6in}
   \begin{tikzpicture}% table
       \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k) - f^*$, ymode=log,
                    width=3.5in, height=3in,
                    enlargelimits=false,
+                   anchor=west,
+                   name=oraclecalls,
                    legend cell align=left, legend pos=north east,
                    legend style={nodes={scale=1.0, transform shape}},
                    legend entries={{$d = 2^{14}$}, {$d = 2^{16}$}, {$d = 2^{18}$},
@@ -53,13 +58,12 @@
     \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
       {./relu_large_262144_3_polyak.csv};
     \end{axis}
-  \end{tikzpicture}
-\end{minipage}~
-\begin{minipage}{3.6in}
-  \begin{tikzpicture}% table
-      \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k) - f^*$, ymode=log,
+    \begin{axis}[xlabel={Time (s)}, ymode=log, ylabel={$f(x_k) - f^*$},
                    width=3.5in, height=3in,
                    enlargelimits=false,
+                   anchor=west,
+                   at=(oraclecalls. east),
+                   xshift=1in,
                    legend cell align=left, legend pos=north east,
                    legend style={nodes={scale=1.0, transform shape}},
                    legend entries={{$d = 2^{14}$}, {$d = 2^{16}$}, {$d = 2^{18}$},
@@ -84,5 +88,4 @@
       {./relu_large_262144_3_polyak.csv};
     \end{axis}
   \end{tikzpicture}
-\end{minipage}
 \end{document}
