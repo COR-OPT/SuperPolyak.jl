@@ -1,6 +1,5 @@
 module SuperPolyak
 
-import Arpack: svds
 import ElasticArrays: ElasticMatrix
 import IterativeSolvers: lsqr!, minres!
 import LinearAlgebra
