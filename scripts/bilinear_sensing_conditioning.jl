@@ -17,7 +17,7 @@ function generate_problem(m::Int, d::Int, r::Int, κ::Int)
   # Solution with specified condition number.
   W = generate_conditioned_matrix(d, r, sqrt(κ))
   X = generate_conditioned_matrix(d, r, sqrt(κ))
-  y = sum((L * W) .* (R * X), dims=2)[:]
+  y = sum((L * W) .* (R * X), dims = 2)[:]
   return SuperPolyak.BilinearSensingProblem(L, R, W, X, y)
 end
 
@@ -49,10 +49,7 @@ function run_experiment(
     cumul_oracle_calls = 0:oracle_calls_polyak,
     cumul_elapsed_time = cumsum(elapsed_time_polyak),
   )
-  CSV.write(
-    "bilinear_sensing_$(m)_$(d)_$(r)_cond_$(κ)_polyak.csv",
-    df_polyak,
-  )
+  CSV.write("bilinear_sensing_$(m)_$(d)_$(r)_cond_$(κ)_polyak.csv", df_polyak)
   @info "Running SuperPolyak..."
   result = SuperPolyak.superpolyak(
     loss_fn,

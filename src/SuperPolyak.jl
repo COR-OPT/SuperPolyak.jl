@@ -181,7 +181,7 @@ function build_bundle_lsqr(
   for bundle_idx in 2:d
     append!(bmtrx, gradf(y))
     # Invariant: resid[bundle_idx - 1] = f(y) - min_f.
-    fvals[bundle_idx] = resid[bundle_idx - 1] + bmtrx[:, bundle_idx]' * (y₀ - y)
+    fvals[bundle_idx] = resid[bundle_idx-1] + bmtrx[:, bundle_idx]' * (y₀ - y)
     At = view(bmtrx, :, 1:bundle_idx)
     lsqr!(
       dy,
@@ -254,7 +254,7 @@ function build_bundle_wv(
   for bundle_idx in 2:d
     copyto!(bvect, gradf(y))
     # Invariant: resid[bundle_idx - 1] = f(y) - min_f.
-    fvals[bundle_idx] = resid[bundle_idx - 1] + bvect' * (y₀ - y)
+    fvals[bundle_idx] = resid[bundle_idx-1] + bvect' * (y₀ - y)
     # Update the QR decomposition of A' after forming [A' bvect].
     # Q is updated in-place.
     qrinsert_wv!(Q, R, bvect)
@@ -262,8 +262,7 @@ function build_bundle_wv(
     # size(R) = (d, bundle_idx).
     if R[bundle_idx, bundle_idx] < 1e-15
       @debug "Stopping (idx=$(bundle_idx)) - reason: rank-deficient A"
-      y =
-        y₀ - Matrix(Q * R)' \ view(fvals, 1:bundle_idx)
+      y = y₀ - Matrix(Q * R)' \ view(fvals, 1:bundle_idx)
       return (norm(y - y₀) ≤ η * Δ ? y : y_best), bundle_idx
     end
     # Update y by solving the system Q * (inv(R)'fvals).
@@ -472,12 +471,12 @@ function superpolyak(
     cumul_time += bundle_stats.time - bundle_stats.gctime
     # Adjust η_est if the bundle step did not satisfy the descent condition.
     if !isnothing(bundle_step) &&
-       ((f(bundle_step) - min_f) > Δ^(1 + η_est)) && (Δ < 0.5)
+       ((f(bundle_step) - min_f) > Δ^(1 + η_est)) &&
+       (Δ < 0.5)
       η_est = max(η_est * 0.9, η_lb)
       @debug "Adjusting η_est = $(η_est)"
     end
-    if isnothing(bundle_step) ||
-       ((f(bundle_step) - min_f) > ϵ_decrease * Δ)
+    if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * Δ)
       @debug "Bundle step failed (k=$(idx)) -- using fallback algorithm"
       if (!isnothing(bundle_step)) && ((f(bundle_step) - min_f) < Δ)
         copyto!(x, bundle_step)
@@ -498,13 +497,7 @@ function superpolyak(
     push!(fvals, f(x) - min_f)
     push!(elapsed_time, cumul_time)
     if fvals[end] ≤ ϵ_tol
-      return SuperPolyakResult(
-        x,
-        fvals,
-        oracle_calls,
-        elapsed_time,
-        step_types,
-      )
+      return SuperPolyakResult(x, fvals, oracle_calls, elapsed_time, step_types)
     end
   end
 end

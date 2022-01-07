@@ -13,7 +13,7 @@ the amortized partial sums, where each increment is identical.
 function get_partial_sums(v::AbstractVector, no_amortized::Bool)
   T = length(v)
   # Step should be integer if v has integer type.
-  step = eltype(v) == Int ? (sum(v) ÷ (T - 1)) : (sum(v) / (T-1))
+  step = eltype(v) == Int ? (sum(v) ÷ (T - 1)) : (sum(v) / (T - 1))
   psum = no_amortized ? cumsum(v) : (0:(T-1)) .* step
   return psum
 end
@@ -166,6 +166,6 @@ norm.
 """
 function generate_conditioned_matrix(d::Int, r::Int, κ::Float64)
   X = Matrix(qr(randn(d, r)).Q)
-  Σ = Diagonal(range(1, κ, length=r))
+  Σ = Diagonal(range(1, κ, length = r))
   return (X * Σ) / norm(Σ)
 end

@@ -38,10 +38,7 @@ function run_experiment(
     it = 0
     x = x₀[:]
     while true
-      x = SuperPolyak.proj_sparse(
-        SuperPolyak.proj_range(problem, x),
-        k,
-      )
+      x = SuperPolyak.proj_sparse(SuperPolyak.proj_range(problem, x), k)
       it += 1
       if loss(x) < ϵ
         return x, it
@@ -52,10 +49,7 @@ function run_experiment(
   _, loss_history_vanilla, oracle_calls_vanilla, elapsed_time_vanilla =
     SuperPolyak.fallback_algorithm(
       loss_fn,
-      z -> SuperPolyak.proj_sparse(
-        SuperPolyak.proj_range(problem, z),
-        k,
-      ),
+      z -> SuperPolyak.proj_sparse(SuperPolyak.proj_range(problem, z), k),
       x_init[:],
       ϵ_tol,
       record_loss = true,

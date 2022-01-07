@@ -91,7 +91,11 @@ end
 Update the QR decomposition after appending a column `v`, given the compact
 WV representation of the matrix `Q` and the `R` matrix.
 """
-function qrinsert_wv!(Q::CompactWV, R::AbstractMatrix{Float64}, v::Vector{Float64})
+function qrinsert_wv!(
+  Q::CompactWV,
+  R::AbstractMatrix{Float64},
+  v::Vector{Float64},
+)
   d = length(v)
   m = size(Q.W, 1)
   n = size(R, 2)

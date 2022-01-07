@@ -44,10 +44,7 @@ function opA(S::Matrix{Int}, V::AbstractMatrix{Float64})
   d, k = size(S)
   # Flatten size `d × r × k` to `dk * r`
   return reshape(
-    permutedims(
-      ifwht(permutedims(S[:, :, :], [1, 3, 2]) .* V, 1),
-      [1, 3, 2],
-    ),
+    permutedims(ifwht(permutedims(S[:, :, :], [1, 3, 2]) .* V, 1), [1, 3, 2]),
     d * k,
     :,
   )
@@ -73,10 +70,10 @@ function opAT(S::Matrix{Int}, V::AbstractMatrix{Float64})
   d, k = size(S)
   m, r = size(V)
   # Product [S_1 H, ..., S_k H] * [V_1; ... V_k]
-  ATV = reshape(S, (d, 1, k)) .* (
-    ifwht(permutedims(reshape(V', r, d, k), [2, 1, 3]), 1)
-  )
-  return dropdims(sum(ATV, dims=3), dims=3)
+  ATV =
+    reshape(S, (d, 1, k)) .*
+    (ifwht(permutedims(reshape(V', r, d, k), [2, 1, 3]), 1))
+  return dropdims(sum(ATV, dims = 3), dims = 3)
 end
 
 function loss(problem::ProblemInstance)
@@ -93,10 +90,7 @@ function loss(problem::ProblemInstance)
     copyto!(W, 1, z, 1, d * r)
     copyto!(X, 1, z, (d * r + 1), d * r)
     # Compute row-wise product.
-    return (1 / m) * norm(
-      y .- sum(opA(S₁, W) .* opA(S₂, X), dims=2)[:],
-      1,
-    )
+    return (1 / m) * norm(y .- sum(opA(S₁, W) .* opA(S₂, X), dims = 2)[:], 1)
   end
   return loss_fn
 end
@@ -125,20 +119,20 @@ function subgradient(problem::ProblemInstance)
       1,        # dest_offset
       z,        # src
       1,        # src_offset
-      d*r,      # N
+      d * r,    # N
     )
     copyto!(
-      X,        # dest
-      1,        # dest_offset
-      z,        # src
-      (d*r+1),  # src_offset
-      d*r,    # N
+      X,            # dest
+      1,            # dest_offset
+      z,            # src
+      (d * r + 1),  # src_offset
+      d * r,        # N
     )
     # LW = [H S_1 W; ... H S_k W]. Similarly for RX.
     LW = opA(S₁, W)
     RX = opA(S₂, X)
-    sg = sign.(sum(LW .* RX, dims=2)[:] .- y)
-    gvec[1:(d * r)] = (1 / m) * vec(opAT(S₁, sg .* RX))
+    sg = sign.(sum(LW .* RX, dims = 2)[:] .- y)
+    gvec[1:(d*r)] = (1 / m) * vec(opAT(S₁, sg .* RX))
     gvec[(d*r+1):end] = (1 / m) * vec(opAT(S₂, sg .* LW))
     return gvec
   end
@@ -155,7 +149,7 @@ function problem_instance(d, r, k, κ)
   S₂ = rand([-1, 1], d, k)
   W = generate_conditioned_matrix(d, r, sqrt(κ))
   X = generate_conditioned_matrix(d, r, sqrt(κ))
-  y = sum(opA(S₁, W) .* opA(S₂, X), dims=2)[:]
+  y = sum(opA(S₁, W) .* opA(S₂, X), dims = 2)[:]
   return ProblemInstance(S₁, S₂, W, X, y)
 end
 
@@ -187,10 +181,7 @@ function run_experiment(
     cumul_oracle_calls = 0:oracle_calls_polyak,
     cumul_elapsed_time = cumsum(elapsed_time_polyak),
   )
-  CSV.write(
-    "matrix_sensing_$(d)_$(r)_$(k)_$(κ)_polyak.csv",
-    df_polyak,
-  )
+  CSV.write("matrix_sensing_$(d)_$(r)_$(k)_$(κ)_polyak.csv", df_polyak)
   @info "Running SuperPolyak..."
   result = SuperPolyak.superpolyak(
     loss_fn,

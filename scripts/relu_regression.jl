@@ -48,7 +48,7 @@ function run_experiment(
     η_lb = η_lb,
     bundle_system_solver = bundle_system_solver,
   )
-  df_bundle = save_superpolyak_result( 
+  df_bundle = save_superpolyak_result(
     "relu_regression_$(m)_$(d)_bundle.csv",
     result,
     no_amortized,

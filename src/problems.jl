@@ -96,13 +96,16 @@ function subgradient_altproj(problem::PhaseRetrievalProblem)
   g = zeros(2 * m)
   g_comp = zeros(eltype(A), m)
   grad_fn(z::AbstractVector) = begin
-    z_comp = z[1:m] + z[(m+1):end] * im;
+    z_comp = z[1:m] + z[(m+1):end] * im
     diff_range = z_comp - A * (F \ z_comp)
     diff_phase = z_comp - y .* phase(z_comp)
     norm_range = norm(diff_range)
     norm_phase = norm(diff_phase)
     # Separate real and imaginary parts in the subgradient.
-    copyto!(g_comp, fnorm(diff_range, norm_range) + fnorm(diff_phase, norm_phase))
+    copyto!(
+      g_comp,
+      fnorm(diff_range, norm_range) + fnorm(diff_phase, norm_phase),
+    )
     g[1:m] = real.(g_comp)
     g[(m+1):end] = imag.(g_comp)
     return g
