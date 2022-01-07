@@ -2,7 +2,7 @@
 
 This repository contains a prototype implementation of the algorithms from the following paper:
 
-V. Charisopoulos, D. Davis. *A superlinearly convergent subgradient method for sharp semismooth problems*, arXiv, 2021.
+V. Charisopoulos, D. Davis. *A superlinearly convergent subgradient method for sharp semismooth problems*, arXiv, 2022.
 
 The implementation is available as a Julia package called `SuperPolyak.jl`, which can be embedded
 in other Julia applications. The core algorithms can be found under `src/SuperPolyak.jl`.
@@ -59,7 +59,7 @@ julia --project=scripts scripts/phase_retrieval.jl --help
 
 The subdirectory includes scripts for solving the following problems:
 
-* Phase retrieval
+* Phase retrieval (using both the subgradient and the alternating projections method)
 * Quadratic sensing
 * Bilinear sensing
 * Max-linear regression
