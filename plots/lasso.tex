@@ -29,6 +29,8 @@
     \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k) - f^*$, ymode=log,
                  width=3.5in, height=3in,
                  enlargelimits=false,
+                 name=oraclecalls,
+                 anchor=west,
                  legend cell align=left, legend pos=north east,
                  legend style={nodes={scale=1.0, transform shape}},
                  legend entries={{$s=10$}, {$s=25$}, {$s=50$},
@@ -52,5 +54,35 @@
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
     {./lasso_500_5000_50_vanilla.csv};
 	\end{axis}
+  \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k) - f^*$, ymode=log,
+                 width=3.5in, height=3in,
+                 enlargelimits=false,
+                 at=(oraclecalls.east),
+                 anchor=west,
+                 xshift=1in,
+                 legend cell align=left, legend pos=north east,
+                 legend style={nodes={scale=1.0, transform shape}},
+                 legend entries={{$s=10$}, {$s=25$}, {$s=50$},
+                                 {\texttt{SuperPolyak}},
+                                 {Proximal Gradient}}]
+  \addlegendimage{mark=*, very thick, color=lblue};
+  \addlegendimage{mark=square*, very thick, color=mblue};
+  \addlegendimage{mark=triangle*, very thick, color=hblue};
+  \addlegendimage{no markers, very thick, solid};
+  \addlegendimage{no markers, very thick, dashed};
+	\addplot[mark=*, very thick, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./lasso_100_1000_10_bundle.csv};
+	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./lasso_100_1000_10_vanilla.csv};
+  \addplot[mark=square*, very thick, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./lasso_250_2500_25_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./lasso_250_2500_25_vanilla.csv};
+  \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {./lasso_500_5000_50_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {./lasso_500_5000_50_vanilla.csv};
+	\end{axis}
+
 \end{tikzpicture}
 \end{document}

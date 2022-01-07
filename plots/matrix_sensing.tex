@@ -26,14 +26,16 @@
 
 \begin{document}
 \begin{tikzpicture}% table
-    \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k)$, ymode=log,
-                 width=3.5in, height=3in,
-                 enlargelimits=false, xmax=4000,
-                 legend cell align=left, legend pos=north east,
-                 legend style={nodes={scale=1.0, transform shape}},
-                 legend entries={{$\kappa = 1$}, {$\kappa = 10$}, {$\kappa = 100$},
-                                 {\texttt{SuperPolyak}},
-                                 {\texttt{PolyakSGM}}}]
+  \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k) - f^{\ast}$, ymode=log,
+               width=3.5in, height=3in,
+               anchor=west,
+               name=oraclecalls,
+               enlargelimits=false, xmax=4000,
+               legend cell align=left, legend pos=north east,
+               legend style={nodes={scale=1.0, transform shape}},
+               legend entries={{$\tilde{\kappa} = 1$}, {$\tilde{\kappa} = 10$}, {$\tilde{\kappa} = 100$},
+                               {\texttt{SuperPolyak}},
+                               {\texttt{PolyakSGM}}}]
   \addlegendimage{mark=*, very thick, color=lblue};
   \addlegendimage{mark=square*, very thick, color=mblue};
   \addlegendimage{mark=triangle*, very thick, color=hblue};
@@ -52,5 +54,33 @@
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
     {./matrix_sensing_32768_2_16_100_polyak.csv};
 	\end{axis}
+  \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k) - f^{\ast}$, ymode=log,
+               width=3.5in, height=3in,
+               at=(oraclecalls.east), anchor=west, xshift=1in,
+               enlargelimits=false, xmax=1000,
+               legend cell align=left, legend pos=north east,
+               legend style={nodes={scale=1.0, transform shape}},
+               legend entries={{$\tilde{\kappa} = 1$}, {$\tilde{\kappa} = 10$}, {$\tilde{\kappa} = 100$},
+                               {\texttt{SuperPolyak}},
+                               {\texttt{PolyakSGM}}}]
+  \addlegendimage{mark=*, very thick, color=lblue};
+  \addlegendimage{mark=square*, very thick, color=mblue};
+  \addlegendimage{mark=triangle*, very thick, color=hblue};
+  \addlegendimage{no markers, very thick, solid};
+  \addlegendimage{no markers, very thick, dashed};
+	\addplot[mark=*, very thick, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./matrix_sensing_32768_2_16_1_bundle.csv};
+	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./matrix_sensing_32768_2_16_1_polyak.csv};
+  \addplot[mark=square*, very thick, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./matrix_sensing_32768_2_16_10_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./matrix_sensing_32768_2_16_10_polyak.csv};
+  \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {./matrix_sensing_32768_2_16_100_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {./matrix_sensing_32768_2_16_100_polyak.csv};
+	\end{axis}
+
 \end{tikzpicture}
 \end{document}

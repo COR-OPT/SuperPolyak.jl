@@ -24,10 +24,16 @@
 \usepackage{tikz,pgfplots}
 \usepackage{xfrac}
 
+\pgfplotsset{compat=1.17}
+\pgfplotsset{xticklabel style={text height=1em, align=center}}
+\pgfplotsset{xtick style={text height=1em, align=center}}
+
 \begin{document}
 \begin{tikzpicture}% table
     \begin{axis}[xlabel={Cumulative oracle calls},ylabel=$f(x_k) - f^*$, ymode=log,
                  width=3.5in, height=3in,
+                 name=oraclecalls,
+                 anchor=west,
                  enlargelimits=false,
                  legend cell align=left, legend pos=north east,
                  legend style={nodes={scale=1.0, transform shape}},
@@ -52,5 +58,35 @@
   \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_oracle_calls,y=fvals, col sep=comma]
     {./bilinear_sensing_15000_2500_2_polyak.csv};
 	\end{axis}
+  \begin{axis}[xlabel={Time (s)},ylabel=$f(x_k) - f^*$, ymode=log,
+                 width=3.5in, height=3in,
+                 enlargelimits=false,
+                 anchor=west,
+                 at=(oraclecalls.east),
+                 xshift=1in,
+                 legend cell align=left, legend pos=north east,
+                 legend style={nodes={scale=1.0, transform shape}},
+                 legend entries={{$(d, r) = (500, 10)$}, {$(d, r) = (1000, 5)$}, {$(d, r) = (2500, 2)$},
+                                 {\texttt{SuperPolyak}},
+                                 {\texttt{PolyakSGM}}}]
+  \addlegendimage{mark=*, very thick, color=lblue};
+  \addlegendimage{mark=square*, very thick, color=mblue};
+  \addlegendimage{mark=triangle*, very thick, color=hblue};
+  \addlegendimage{no markers, very thick, solid};
+  \addlegendimage{no markers, very thick, dashed};
+	\addplot[mark=*, very thick, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_500_10_bundle.csv};
+	\addplot[no markers, very thick, dashed, color=lblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_500_10_polyak.csv};
+  \addplot[mark=square*, very thick, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_1000_5_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=mblue] table[x=cumul_elapsed_time,y=fvals,col sep=comma]
+    {./bilinear_sensing_15000_1000_5_polyak.csv};
+  \addplot[mark=triangle*, very thick, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {./bilinear_sensing_15000_2500_2_bundle.csv};
+  \addplot[no markers, very thick, dashed, color=hblue] table[x=cumul_elapsed_time,y=fvals, col sep=comma]
+    {./bilinear_sensing_15000_2500_2_polyak.csv};
+	\end{axis}
+
 \end{tikzpicture}
 \end{document}
