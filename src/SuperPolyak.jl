@@ -1,7 +1,7 @@
 module SuperPolyak
 
 import ElasticArrays: ElasticMatrix
-import IterativeSolvers: lsqr!, minres!
+import IterativeSolvers: lsqr!
 import LinearAlgebra
 import LinearMaps: LinearMap
 import ReverseDiff: GradientTape, gradient!, compile
@@ -34,7 +34,7 @@ function polyak_sgm(
   f::Function,
   gradf::Function,
   x₀::Vector{Float64},
-  ϵ::Float64 = (f(x_0) / 2),
+  ϵ::Float64 = (f(x₀) / 2),
   min_f::Float64 = 0.0,
 )
   x = x₀[:]
@@ -130,17 +130,6 @@ function fallback_algorithm(
   else
     return x, oracle_calls, elapsed_time
   end
-end
-
-"""
-  argmin_parentindex(v::Vector{Float64}, b::BitVector)
-
-Find the argmin of `v` over a subset defined by the bit vector `b` and return
-the index in the original vector.
-"""
-function argmin_parentindex(v::Vector{Float64}, b::BitVector)
-  v = view(v, b)
-  return first(parentindices(v))[argmin(v)]
 end
 
 """
@@ -465,6 +454,7 @@ function superpolyak(
     cumul_time = 0.0
     Δ = fvals[end]
     η = ϵ_distance^(idx)
+    target_tol = max(ϵ_decrease * Δ, ϵ_tol)
     bundle_stats = @timed bundle_step, bundle_calls =
       bundle_solver(f, gradf, x, η, min_f, η_est)
     cumul_time += bundle_stats.time - bundle_stats.gctime
@@ -475,13 +465,13 @@ function superpolyak(
       η_est = max(η_est * 0.9, η_lb)
       @debug "Adjusting η_est = $(η_est)"
     end
-    if isnothing(bundle_step) || ((f(bundle_step) - min_f) > ϵ_decrease * Δ)
+    if isnothing(bundle_step) || ((f(bundle_step) - min_f) > target_tol)
       @debug "Bundle step failed (k=$(idx)) -- using fallback algorithm"
       if (!isnothing(bundle_step)) && ((f(bundle_step) - min_f) < Δ)
         copyto!(x, bundle_step)
       end
       fallback_stats = @timed x, fallback_calls =
-        fallback_alg(f, gradf, x, ϵ_decrease * (f(x) - min_f), min_f)
+        fallback_alg(f, gradf, x, target_tol, min_f)
       cumul_time += fallback_stats.time - fallback_stats.gctime
       # Include the number of oracle calls made by the failed bundle step.
       push!(oracle_calls, fallback_calls + bundle_calls)

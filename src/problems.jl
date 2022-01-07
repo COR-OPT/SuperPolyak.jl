@@ -27,7 +27,7 @@ Return a callable that computes a subgradient of the robust ℓ₁ loss for a ph
 retrieval problem.
 """
 function subgradient(problem::PhaseRetrievalProblem)
-  m, d = size(problem.A)
+  d = size(problem.A, 2)
   compiled_loss_tape = compile(GradientTape(loss(problem), rand(d)))
   return z -> gradient!(compiled_loss_tape, z)
 end

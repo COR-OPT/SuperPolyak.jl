@@ -97,7 +97,6 @@ function qrinsert_wv!(
   v::Vector{Float64},
 )
   d = length(v)
-  m = size(Q.W, 1)
   n = size(R, 2)
   # Assumption: `v` is added at the end of the matrix.
   w = Q'v
