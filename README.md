@@ -44,7 +44,7 @@ julia --project=scripts -e 'import Pkg; Pkg.instantiate()'
 ```
 
 All the experiments in the paper are contained in individual scripts.
-For example, to solve a phase retrieval instance with dimension \( d = 100 \) and \( m = 250 \)
+For example, to solve a phase retrieval instance with dimension `d = 100` and `m = 250`
 measurements, we run:
 
 ```shell

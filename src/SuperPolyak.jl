@@ -6,7 +6,7 @@ import IterativeSolvers: lsqr!, minres!
 import LinearAlgebra
 import LinearMaps: LinearMap
 import ReverseDiff: GradientTape, gradient!, compile
-import SparseArrays: nnz, sparse, SparseMatrixCSC, SparseVector, spzeros
+import SparseArrays: nnz, sparse
 import StatsBase: sample
 
 const Diagonal = LinearAlgebra.Diagonal
@@ -21,11 +21,6 @@ const qr = LinearAlgebra.qr
 const rank = LinearAlgebra.rank
 const UpperTriangular = LinearAlgebra.UpperTriangular
 
-# An abstract type encoding an optimization problem. All concrete problem
-# instances should be subtypes of `OptProblem`.
-abstract type OptProblem end
-
-include("chambolle_pock.jl")
 include("problems.jl")
 include("sparse_regression_problems.jl")
 include("qrinsert.jl")
