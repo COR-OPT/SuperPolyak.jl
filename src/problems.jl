@@ -382,8 +382,8 @@ Return an initial estimate of the slopes of each affine piece for a max-affine
 regression `problem` with normalized distance `δ` from the ground truth.
 """
 function initializer(problem::MaxAffineRegressionProblem, δ::Float64)
-  Δ = randn(size(problem.βs))
-  return problem.βs .+ δ .* (Δ ./ norm(Δ))
+  βs = problem.βs[:]
+  return βs + (δ * norm(βs)) .* normalize(randn(length(βs)))
 end
 
 """

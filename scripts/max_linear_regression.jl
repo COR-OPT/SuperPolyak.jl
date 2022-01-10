@@ -29,7 +29,7 @@ function run_experiment(
   βs_init = SuperPolyak.initializer(problem, δ)
   @info "Running subgradient method..."
   _, loss_history_polyak, oracle_calls_polyak, elapsed_time_polyak =
-    SuperPolyak.subgradient_method(loss_fn, grad_fn, βs_init[:], ϵ_tol)
+    SuperPolyak.subgradient_method(loss_fn, grad_fn, copy(βs_init), ϵ_tol)
   df_polyak = DataFrame(
     t = 1:length(loss_history_polyak),
     fvals = loss_history_polyak,
@@ -41,7 +41,7 @@ function run_experiment(
   result = SuperPolyak.superpolyak(
     loss_fn,
     grad_fn,
-    βs_init[:],  # Vectorize for compatibility with superpolyak(...)
+    copy(βs_init),
     ϵ_decrease = ϵ_decrease,
     ϵ_distance = ϵ_distance,
     ϵ_tol = ϵ_tol,
