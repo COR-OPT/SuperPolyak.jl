@@ -2,7 +2,7 @@
 
 This repository contains a prototype implementation of the algorithms from the following paper:
 
-V. Charisopoulos, D. Davis. *A superlinearly convergent subgradient method for sharp semismooth problems*, 2022. URL: http://www.optimization-online.org/DB_HTML/2022/01/8765.html
+V. Charisopoulos, D. Davis. *A superlinearly convergent subgradient method for sharp semismooth problems*, 2022. URL: https://arxiv.org/abs/2201.04611.
 
 The implementation is available as a Julia package called `SuperPolyak.jl`, which can be embedded
 in other Julia applications. The core algorithms can be found under `src/SuperPolyak.jl`.
