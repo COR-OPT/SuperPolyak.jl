@@ -9,6 +9,8 @@ in other Julia applications. The core algorithms can be found under `src/SuperPo
 Under `scripts/`, we have included all the scripts necessary to reproduce the numerical experiments in the
 paper. We recommend running the code using Julia 1.6 or later.
 
+**Note**: We have also released a Pytorch version at [SuperPolyak.py](https://github.com/COR-OPT/SuperPolyak.py).
+
 ## One-time setup
 
 To install the dependencies of the package, run the following from the root directory
